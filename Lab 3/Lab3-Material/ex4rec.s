@@ -7,22 +7,43 @@
 
 @ ---------------------	
 fact :
-	sub sp,#4
+	mov r2,#4
+    mov r3,r0
+    add r3,r3,#1
+	mul r2,r3,r2
+	sub sp,sp,r2
 	str lr,[sp,#0]
 
-	mov r6,#0
-	mov r7,#1
-	rec:
-		cmp r6,r0
+	mov r3,r0
+	mov r4,#0
+
+	rect:
+		str lr,[sp,r4]
+		cmp r3,#0
+		beq bran1
+		sub r3,r3,#1
+		add r4,r4,#4
+		bl rect
+
+		cmp r3,r0
 		beq exit
-		add r6,r6,#1
-		mul r7,r6,r7
-		b rec
+
+		mul r5,r3,r5
+		ldr lr,[sp,r6]
+		sub r6,r6,#4
+		mov pc,lr
+
+	bran1:
+		mov r5,#1
+		add r3,r3,#1
+		ldr lr,[sp,r4]
+		sub r4,r4,#4
+		mov pc,lr
 
 exit :
-	mov r0,r7
+	mov r0,r5
 	ldr lr,[sp,#0]
-	add sp,#4
+	add sp,sp,r8
 	mov pc,lr
 
 
