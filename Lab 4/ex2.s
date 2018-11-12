@@ -17,14 +17,14 @@ main:
 	ldr r1, [sp,#4]		@(r1)X
 	add sp, sp, #8
 
-    cmp r1,r2
+    	cmp r1,r2
 	beq eqbr
 
-	ldr r0, =formatp2
+	ldr r0, =formatp2	@Load format2 if not equal
 	b exit
 
 	eqbr:
-	ldr r0, =formatp1
+	ldr r0, =formatp1	@Load format2 if equal
 
 	exit:
 	@ load aguments and print

@@ -6,19 +6,20 @@ main:
 	sub sp, sp, #4
 	str lr, [sp, #0]
 	
-	sub sp, sp, #4
 	ldr r0, =formats
+	sub sp, sp, #4	
 	mov r1, sp			@r1 for X
 	sub sp, sp, #4
 	mov r2, sp			@r2 for Y
 
 	bl scanf
+
 	ldr r2, [sp,#0]		@(r2)Y
 	ldr r1, [sp,#4]		@(r1)X
 	add sp, sp, #8
 
-	mov r3,r1			@r3=1
-	LSL r1,r1,r2		@r2=2^Y
+	mov r3,r1		@r3=r1
+	LSL r1,r1,r2		@r2=x*2^Y
 	
 	LSR r2,r3,r2		@r2=X/(2^Y)
 	

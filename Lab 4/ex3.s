@@ -11,22 +11,22 @@ main:
 	mov r1, sp			@r1 for X
 
 	bl scanf
-	ldr r1, [sp,#0]		@(r2)Y
+	ldr r1, [sp,#0]		@(r1)X
 	add sp, sp, #4
 
-	mov r4,r1       @r3=X
-    mov r5,#1       @r4=1
+	mov r4,r1       @r4=X
+    	mov r5,#1       @r5=1
     
-    loop:
-    cmp r5,r4       @ r4,X
-    bgt exit        @ r4> X
+    	loop:
+    	cmp r5,r4       @ r5,X
+    	bgt exit        @ r5> X
 
-    mov r1,r5           @ r1 = r4
-    ldr r0, =formatp    
-    bl printf
-    add r5, r5, #1      @ r4++
+    	mov r1,r5           @ r1 = r5
+    	ldr r0, =formatp    
+    	bl printf
+    	add r5, r5, #1      @ r5++
 
-    b loop
+    	b loop
 
 exit:
     @ stack handling (pop lr from the stack) and return
