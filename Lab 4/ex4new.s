@@ -1,4 +1,3 @@
-
 	.global main
 main:
 	@ stack handling, will discuss later
@@ -6,63 +5,93 @@ main:
 	sub sp, sp, #4
 	str lr, [sp, #0]
 
-    ldr r0, =formatps       @Enter the number of strings :
-	bl printf
-
-    sub sp, sp, #4
-	ldr r0, =formatsint
-	mov r1, sp
-    bl scanf
-	ldr r11, [sp,#0]		@number of strings
-	add sp, sp, #4
-
-    cmp r11,#0              @
-    blt exit1               @ no of str < 0 -> invalid input
-    beq exit2               @ no of str = 0 -> no input
- 
-	sub sp, sp, #100
-	
-    ldr r0, =formatp3   @Enter input String :
-    mov r1,#0
-    bl printf
-
-    mov r5, sp
-	loopStr:
-	ldr	r0, =formats
-	mov	r1, r5
-	bl scanf
-	ldrb r6,[r5,#0]
-
-	cmp r6,#'\n'
-	beq exit
-	add r5,r5,#1
-	b loopStr
-
-	exit:
-	@ load aguments and print
-	
-	mov r6,#0
-	strb r6,[r5,#0]
-
+	ldr r0,=formatp1
+        bl printf
+        
+	sub sp, sp, #4 // get space for the string
 	mov r1,sp
-	ldr r0, =formatp
-	bl printf
-	add sp, sp, #100
 
-	@ stack handling (pop lr from the stack) and return
+	ldr r0, =formats1	//scanf(%d)
+	bl scanf
+	
+        ldr r8,[sp,#0]
+ 	add sp,sp,#4
+	
+	sub sp, sp, #100	// get space for the string
+	mov r5, sp		// move the address to r5
+
+	sub sp, sp, #1		// get space for the char
+	mov r1,sp
+	ldr	r0,=formats2
+	bl scanf
+	add sp,sp,#1
+
+	cmp r8,#0
+	ble invalid
+	mov r9,#0
+ 
+	
+	mainloop:
+		cmp r9,r8
+          	beq exit
+           	
+		ldr r0, =formatp5	//printf("Enter the input strings %d:\n")
+		mov r1, r9
+		bl printf
+
+        	mov r7,#0		// string length
+		
+		loop:			// scan chars
+		ldr r0, =formats2	// scanf("%c")
+		mov r1, r5
+		bl scanf		// call scanf
+		ldrb r6,[r5,#0] 	// load the character scanned
+        	add r7,r7,#1		// length++	
+		cmp r6,#'\n'		// check for new line
+		beq reverse		// if new line branch to print in reverse
+		add r5,r5,#1		// else adjust stackpointer for next char
+		b loop
+
+
+		reverse:		// printing in reverse
+		loop2: cmp r7,#1	// check the first charcter 
+        	beq exit1		// if all charcters printed ,go to exit
+		sub r5,r5,#1		// adjust stack
+        	sub r7,r7,#1		// length--
+        	ldrb r1,[r5,#0]		// load the charcater
+        	ldr r0,=formatp2	// printf("\n")
+        	bl printf		// print
+        	b loop2	
+       
+    		exit1:
+		ldr r0,=formatp4	// load the print format 
+        	bl printf
+        
+		//sub r8,r8,#1
+		add r9,r9,#1
+        	b mainloop
+  
+
+invalid:
+	ldr r0,=formatp3
+        bl printf
+        
+	 	 
+exit:
+	add sp,sp,#100
+
+ @   stack handling (pop lr from the stack) and return
 	ldr lr, [sp, #0]
 	add sp, sp, #4
 	mov pc, lr
-exit1:
-exit2:
-	.data	@ data memory
 
-formatsint: .asciz "%d"
-formats: .asciz "%c"
-formatps: .asciz "Enter the number of strings :\n" 
-formatp1: .asciz "Invalid number\n"
-formatp2: .asciz "No input\n"
-formatp3: .asciz "Enter input String %d : "
-formatp4: .asciz "Output string %d is :\n"
-formatp: .asciz "%s\n"
+	.data	@ data memory
+formats1: .asciz "%d"
+formats2: .asciz "%c"
+formatp1: .asciz "Enter number of strings:"
+formatp2: .asciz "%c"
+formatp3: .asciz "invalid Input\n"
+formatp4: .asciz "\n"
+formatp5: .asciz "Enter the input strings %d:\n"
+
 
