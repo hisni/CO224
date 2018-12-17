@@ -5,41 +5,98 @@
 
 
 module ALU(RESULT, DATA1, DATA2, SELECT);
-	input [7:0] DATA1,DATA2;	//Source 1 & 2
+	input [7:0] DATA1,DATA2;	//Source 1 & 2	
 	input [2:0] SELECT;
 	output [7:0] RESULT;
+	reg [7:0] Res;
+	
+	assign RESULT= Res;
 
-	wire [7:0] Reg1,Reg2;
-    	reg [7:0] Reg3;
-    
-    	assign Reg1 = DATA1;
-    	assign Reg2 = DATA2;
-	assign RESULT= Reg3;
-
-	always @( SELECT )
+	always @(DATA1,DATA2,SELECT)
     	begin
         case ( SELECT )
-         0 : Reg3 = Reg1;		//Forward ( loadi, mov )
-         1 : Reg3 = Reg1 + Reg2;	//Addition ( add, sub )
-         2 : Reg3 = Reg1 & Reg2;	//Bitwise AND ( and )
-         3 : Reg3 = Reg1 | Reg2;	//Bitwise OR ( or )
-	 default : Reg3 = 0;
+         0 : Res = DATA1;		//Forward ( loadi, mov )
+         1 : Res = DATA1 + DATA2;	//Addition ( add, sub )
+         2 : Res = DATA1 & DATA2;	//Bitwise AND ( and )
+         3 : Res = DATA1 | DATA2;	//Bitwise OR ( or )
+	 default : Res = 0;
         endcase 
     end
 
 endmodule
 
-/*
+
 module regfile8x8a ( clk, INaddr, IN, OUT1addr, OUT1, OUT2addr, OUT2);
-	input [2:0] OUT1addr,OUT1addr,INaddr;
+	
+	input [2:0] OUT1addr,OUT2addr,INaddr;
 	input [7:0] IN;
 	input clk;
 	output [7:0] OUT1,OUT2;
+
+	reg [63:0] regMemory = 0;
+	reg [7:0] OUT1reg, OUT2reg;
+	integer i;
+	
+	assign OUT1 = OUT1reg[7:0];
+	assign OUT2 = OUT2reg[7:0];
+
+	always @(posedge clk) begin
+		for(i=0;i<8;i=i+1) begin
+			OUT1reg[i] = regMemory[ OUT1addr*8 + i ];
+			OUT2reg[i] = regMemory[ OUT2addr*8 + i ];
+		end
+	end	
 	
 
-endmodule
-*/
+	always @(negedge clk) begin
+		for(i=0;i<8;i=i+1)begin
+			regMemory[INaddr*8 + i] = IN[i];
+		end		
+	end
 
+endmodule
+
+
+module testregeter;
+ 
+reg [2:0] INaddr,OUT1addr,OUT2addr;
+reg clk;
+reg [7:0] IN;
+wire [7:0] OUT1,OUT2;
+ 
+    	regfile8x8a regf ( clk, INaddr, IN, OUT1addr, OUT1, OUT2addr, OUT2);
+
+    	initial begin
+    	clk = 1'b0; end
+    	always #10 clk = ~clk;
+ 
+initial begin
+
+#5//T=5
+	IN = 12;
+	INaddr = 5;
+	OUT1addr = 5;
+	OUT2addr = 3;
+
+#10//T=15								//T=10
+	$display("OUT1 = %d OUT2 = %d",OUT1,OUT2);
+#20//T=35								//T=10
+	$display("OUT1 = %d OUT2 = %d",OUT1,OUT2);								//T=40
+	IN = 12;
+	INaddr = 3;
+#10//T=45
+	$display("OUT1 = %d OUT2 = %d",OUT1,OUT2);		
+#10
+	$display("OUT1 = %d OUT2 = %d",OUT1,OUT2);		
+
+$finish;
+
+end
+endmodule
+
+
+
+/*
 module testALU;
 
     reg [7:0] DATA1;
@@ -69,3 +126,4 @@ module testALU;
     end
       
 endmodule
+*/
