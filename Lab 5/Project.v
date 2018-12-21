@@ -63,8 +63,11 @@ reg [2:0] INaddr,OUT1addr,OUT2addr;
 reg clk;
 reg [7:0] IN;
 wire [7:0] OUT1,OUT2;
+reg [2:0] SELECT;
+wire [7:0] RESULT;
  
     	regfile8x8a regf ( clk, INaddr, IN, OUT1addr, OUT1, OUT2addr, OUT2);
+	ALU test( RESULT,OUT1,OUT2,SELECT);
 
     	initial begin
     	clk = 1'b0; end
@@ -78,16 +81,19 @@ initial begin
 	OUT1addr = 5;
 	OUT2addr = 3;
 
-#10//T=15								//T=10
+#10//T=15								
 	$display("OUT1 = %d OUT2 = %d",OUT1,OUT2);
-#20//T=35								//T=10
-	$display("OUT1 = %d OUT2 = %d",OUT1,OUT2);								//T=40
-	IN = 12;
+#20//T=35								
+	$display("OUT1 = %d OUT2 = %d",OUT1,OUT2);
+	IN = 10;
 	INaddr = 3;
 #10//T=45
 	$display("OUT1 = %d OUT2 = %d",OUT1,OUT2);		
-#10
-	$display("OUT1 = %d OUT2 = %d",OUT1,OUT2);		
+#10//T=55
+	$display("OUT1 = %d OUT2 = %d",OUT1,OUT2);
+	SELECT = 1;
+#10//T=65
+	$display("%d + %d = %d\n",OUT1,OUT2,RESULT);	
 
 $finish;
 
