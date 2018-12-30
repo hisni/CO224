@@ -3,7 +3,7 @@
 	Simple Processor
 */
 
-// ******** ALU ******** \\
+// ******** ALU ********
 module ALU(RESULT, DATA1, DATA2, SELECT);
 	input [7:0] DATA1,DATA2;	//Source 1 & 2	
 	input [2:0] SELECT;
@@ -25,7 +25,7 @@ module ALU(RESULT, DATA1, DATA2, SELECT);
 
 endmodule
 
-// ******** Register File ******** \\
+// ******** Register File ********
 module regfile8x8a ( clk, INaddr, IN, OUT1addr, OUT1, OUT2addr, OUT2);
 	
 	input [2:0] OUT1addr,OUT2addr,INaddr;
@@ -56,7 +56,7 @@ module regfile8x8a ( clk, INaddr, IN, OUT1addr, OUT1, OUT2addr, OUT2);
 
 endmodule
 
-// ******** Program Counter ******** \\
+// ******** Program Counter ********
 module counter(clk, reset, Read_addr);
 	input clk;
 	input reset;
@@ -72,7 +72,7 @@ module counter(clk, reset, Read_addr);
 	end
 endmodule
 
-// ******** Multiplexer ******** \\
+// ******** Multiplexer ********
 module MUX( OUTPUT, clk, INPUT1, INPUT2, CTRL );
 	input [7:0] INPUT1, INPUT2;
 	output [7:0] OUTPUT;
@@ -88,7 +88,7 @@ module MUX( OUTPUT, clk, INPUT1, INPUT2, CTRL );
 	end
 endmodule
 
-// ******** 2's Complement ******** \\
+// ******** 2's Complement ********
 module TwosComplement( OUTPUT, INPUT );
 	input signed [7:0] INPUT;
 	output signed [7:0] OUTPUT;
@@ -97,10 +97,109 @@ module TwosComplement( OUTPUT, INPUT );
 
 endmodule
 
+// ******** Instruction Register ********
+module Instruction_reg (clk, Read_Addr, instruction);
+	input clk;
+	input [31:0] Read_Addr;
+	output [31:0] instruction;
+	reg instruction;
+
+	always @(negedge clk) 
+	begin
+	instruction = Read_Addr;
+	end
+endmodule
+
+// ******** Control Unit ********
+module CU( instruction, OUT1addr, OUT2addr, INaddr, Imm, Select, addSubMUX, imValueMUX );
+	input [31:0] instruction;
+	output [2:0] OUT1addr;
+	output [2:0] OUT2addr;
+	output [2:0] Select;
+	output [2:0] INaddr;
+	output [7:0] Imm;
+	output addSubMUX,imValueMUX;
+
+	reg [2:0] OUT1addr,OUT2addr,INaddr,Select;
+	reg [7:0] Imm;
+	reg addSubMUX,imValueMUX; 
+
+	always @(instruction) 
+		begin
+			case(instruction[31:24])
+				
+			8'b00000000 : begin  //loadi
+				assign Select = instruction[26:24];		//Needed For ALU selection
+				assign Imm = instruction[7:0];			//Immediate Value
+				assign addSubMUX = 1'b0;				//*****Ignore*****
+				assign imValueMUX = 1'b0;				//CS Select Imm Value for ALU
+				assign OUT1addr = instruction[2:0];		//*****Ignore*****
+				assign OUT2addr = instruction[10:8];	//*****Ignore*****
+				assign INaddr = instruction[18:16];		//Destination Address
+				end
+			8'b00001000 : begin  //mov
+				assign Select = instruction[26:24];		//Needed For ALU selection
+				assign Imm = instruction[7:0];			//*****Ignore*****
+				assign addSubMUX = 1'b0;				//*****Ignore*****
+				assign imValueMUX = 1'b1;				//Select from Source 1
+				assign OUT1addr = instruction[2:0];		//Source 1
+				assign OUT2addr = instruction[10:8];	//*****Ignore*****
+				assign INaddr = instruction[18:16];		//Destination Address
+				end
+			8'b00000001 : begin //add
+				assign Select = instruction[26:24];		//Needed For ALU selection
+				assign Imm = instruction[7:0];			//*****Ignore*****
+				assign addSubMUX = 1'b0;				//Select directly from Source 2
+				assign imValueMUX = 1'b1;				//Select from Source 1
+				assign OUT1addr = instruction[2:0];		//Source 1
+				assign OUT2addr = instruction[10:8];	//Source 2
+				assign INaddr = instruction[18:16];		//Destination Address
+				end
+			8'b00001001 : begin //sub
+				assign Select = instruction[26:24];		//Needed For ALU selection
+				assign Imm = instruction[7:0];			//*****Ignore*****
+				assign addSubMUX = 1'b1;				//2's complements of Source 2
+				assign imValueMUX = 1'b1;				//Select from Source 1
+				assign OUT1addr = instruction[2:0];		//Source 1
+				assign OUT2addr = instruction[10:8];	//Source 2
+				assign INaddr = instruction[18:16];		//Destination Address
+				end
+			8'b00000010 : begin //and
+				assign Select = instruction[26:24];		//Needed For ALU selection
+				assign Imm = instruction[7:0];			//*****Ignore*****
+				assign addSubMUX = 1'b0;				//Select directly from Source 2
+				assign imValueMUX = 1'b1;				//Select from Source 1
+				assign OUT1addr = instruction[2:0];		//Source 1
+				assign OUT2addr = instruction[10:8];	//Source 2
+				assign INaddr = instruction[18:16];		//Destination Address
+				end
+			8'b00000011 : begin //or
+				assign Select = instruction[26:24];		//Needed For ALU selection
+				assign Imm = instruction[7:0];			//*****Ignore*****
+				assign addSubMUX = 1'b0;				//Select directly from Source 2
+				assign imValueMUX = 1'b1;				//Select from Source 1
+				assign OUT1addr = instruction[2:0];		//Source 1
+				assign OUT2addr = instruction[10:8];	//Source 2
+				assign INaddr = instruction[18:16];		//Destination Address
+				end
+			
+			endcase
+		end
+endmodule
+
+module Processor();
+
+
+endmodule
+
+
+
+
+
 
 
 /*
-// ******** Test Register File ******** \\
+// ******** Test Register File ********
 module testregeter;
  
 	reg [2:0] INaddr,OUT1addr,OUT2addr;
@@ -144,7 +243,7 @@ module testregeter;
 	end
 endmodule
  
-// ******** Test ALU ******** \\
+// ******** Test ALU ********
 module testALU;
 
     reg [7:0] DATA1;
