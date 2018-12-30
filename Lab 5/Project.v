@@ -3,7 +3,7 @@
 	Simple Processor
 */
 
-
+// ******** ALU ******** \\
 module ALU(RESULT, DATA1, DATA2, SELECT);
 	input [7:0] DATA1,DATA2;	//Source 1 & 2	
 	input [2:0] SELECT;
@@ -19,13 +19,13 @@ module ALU(RESULT, DATA1, DATA2, SELECT);
          1 : Res = DATA1 + DATA2;	//Addition ( add, sub )
          2 : Res = DATA1 & DATA2;	//Bitwise AND ( and )
          3 : Res = DATA1 | DATA2;	//Bitwise OR ( or )
-	 default : Res = 0;
+		default : Res = 0;
         endcase 
     end
 
 endmodule
 
-
+// ******** Register File ******** \\
 module regfile8x8a ( clk, INaddr, IN, OUT1addr, OUT1, OUT2addr, OUT2);
 	
 	input [2:0] OUT1addr,OUT2addr,INaddr;
@@ -56,53 +56,95 @@ module regfile8x8a ( clk, INaddr, IN, OUT1addr, OUT1, OUT2addr, OUT2);
 
 endmodule
 
+// ******** Program Counter ******** \\
+module counter(clk, reset, Read_addr);
+	input clk;
+	input reset;
+	output [31:0] Read_addr;
+	reg Read_addr;
 
-module testregeter;
- 
-reg [2:0] INaddr,OUT1addr,OUT2addr;
-reg clk;
-reg [7:0] IN;
-wire [7:0] OUT1,OUT2;
-reg [2:0] SELECT;
-wire [7:0] RESULT;
- 
-    	regfile8x8a regf ( clk, INaddr, IN, OUT1addr, OUT1, OUT2addr, OUT2);
-	ALU test( RESULT,OUT1,OUT2,SELECT);
+	always @(negedge clk)
+	begin
+		case(reset)
+			1'b1 : begin Read_addr = 32'd0; end
+			1'b0 : begin Read_addr = Read_addr + 3'b100; end
+		endcase
+	end
+endmodule
 
-    	initial begin
-    	clk = 1'b0; end
-    	always #10 clk = ~clk;
- 
-initial begin
+// ******** Multiplexer ******** \\
+module MUX( OUTPUT, clk, INPUT1, INPUT2, CTRL );
+	input [7:0] INPUT1, INPUT2;
+	output [7:0] OUTPUT;
+	input CTRL, clk;
+	reg [7:0] OUTPUT;
 
-#5//T=5
-	IN = 12;
-	INaddr = 5;
-	OUT1addr = 5;
-	OUT2addr = 3;
+	always @(negedge clk)
+	begin
+		case( CTRL )
+			1'b0 : begin OUTPUT <= INPUT1; end
+			1'b1 : begin OUTPUT <= INPUT2; end
+		endcase
+	end
+endmodule
 
-#10//T=15								
-	$display("OUT1 = %d OUT2 = %d",OUT1,OUT2);
-#20//T=35								
-	$display("OUT1 = %d OUT2 = %d",OUT1,OUT2);
-	IN = 10;
-	INaddr = 3;
-#10//T=45
-	$display("OUT1 = %d OUT2 = %d",OUT1,OUT2);		
-#10//T=55
-	$display("OUT1 = %d OUT2 = %d",OUT1,OUT2);
-	SELECT = 1;
-#10//T=65
-	$display("%d + %d = %d\n",OUT1,OUT2,RESULT);	
+// ******** 2's Complement ******** \\
+module TwosComplement( OUTPUT, INPUT );
+	input signed [7:0] INPUT;
+	output signed [7:0] OUTPUT;
 
-$finish;
+	assign OUTPUT = ~INPUT + 8'b00000001;
 
-end
 endmodule
 
 
 
 /*
+// ******** Test Register File ******** \\
+module testregeter;
+ 
+	reg [2:0] INaddr,OUT1addr,OUT2addr;
+	reg clk;
+	reg [7:0] IN;
+	wire [7:0] OUT1,OUT2;
+	reg [2:0] SELECT;
+	wire [7:0] RESULT;
+ 
+	regfile8x8a regf ( clk, INaddr, IN, OUT1addr, OUT1, OUT2addr, OUT2);
+	ALU test( RESULT,OUT1,OUT2,SELECT);
+
+	initial begin
+	clk = 1'b0; end
+	always #10 clk = ~clk;
+ 
+	initial begin
+
+	#5//T=5
+		IN = 12;
+		INaddr = 5;
+		OUT1addr = 5;
+		OUT2addr = 3;
+
+	#10//T=15								
+		$display("OUT1 = %d OUT2 = %d",OUT1,OUT2);
+	#20//T=35								
+		$display("OUT1 = %d OUT2 = %d",OUT1,OUT2);
+		IN = 10;
+		INaddr = 3;
+	#10//T=45
+		$display("OUT1 = %d OUT2 = %d",OUT1,OUT2);		
+	#10//T=55
+		$display("OUT1 = %d OUT2 = %d",OUT1,OUT2);
+		SELECT = 1;
+	#10//T=65
+		$display("%d + %d = %d\n",OUT1,OUT2,RESULT);	
+
+	$finish;
+
+	end
+endmodule
+ 
+// ******** Test ALU ******** \\
 module testALU;
 
     reg [7:0] DATA1;
