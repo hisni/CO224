@@ -4,7 +4,7 @@
 */
 
 // ******** ALU ********
-module ALU(RESULT, DATA1, DATA2, SELECT);
+module ALU( RESULT, DATA1, DATA2, SELECT );
 	input [7:0] DATA1,DATA2;	//Source 1 & 2	
 	input [2:0] SELECT;
 	output [7:0] RESULT;
@@ -26,7 +26,7 @@ module ALU(RESULT, DATA1, DATA2, SELECT);
 endmodule
 
 // ******** Register File ********
-module regfile8x8a ( clk, INaddr, IN, OUT1addr, OUT1, OUT2addr, OUT2);
+module regfile8x8a ( clk, INaddr, IN, OUT1addr, OUT1, OUT2addr, OUT2 );
 	
 	input [2:0] OUT1addr,OUT2addr,INaddr;
 	input [7:0] IN;
@@ -57,7 +57,7 @@ module regfile8x8a ( clk, INaddr, IN, OUT1addr, OUT1, OUT2addr, OUT2);
 endmodule
 
 // ******** Program Counter ********
-module counter(clk, reset, Read_addr);
+module counter(clk, reset, Read_addr );
 	input clk;
 	input reset;
 	output [31:0] Read_addr;
@@ -98,7 +98,7 @@ module TwosComplement( OUTPUT, INPUT );
 endmodule
 
 // ******** Instruction Register ********
-module Instruction_reg (clk, Read_Addr, instruction);
+module Instruction_reg ( clk, Read_Addr, instruction );
 	input clk;
 	input [31:0] Read_Addr;
 	output [31:0] instruction;
@@ -187,10 +187,131 @@ module CU( instruction, OUT1addr, OUT2addr, INaddr, Imm, Select, addSubMUX, imVa
 		end
 endmodule
 
+// ******** Processor ********
 module Processor();
-
-
+	//
 endmodule
+
+module test;
+
+	reg [31:0] Read_Addr;
+	reg clk;
+	wire [7:0] Result;
+
+	wire [31:0] instruction;
+	wire [2:0] OUT1addr,OUT2addr,INaddr,Select;
+	wire  [7:0] Imm,OUT1,OUT2,OUTPUT,INPUT,cmp;
+	wire [7:0] imValueMUXout, addSubMUXout;
+	wire addSubMUX, imValueMUX;
+
+
+	Instruction_reg ir1(clk, Read_Addr, instruction);
+	CU cu1( instruction, OUT1addr, OUT2addr, INaddr, Imm, Select, addSubMUX, imValueMUX );
+	regfile8x8a rf1( clk, INaddr, Result, OUT1addr, OUT1, OUT2addr, OUT2 );
+	TwosComplement cmp1( OUTPUT, INPUT );
+	MUX mux1( addSubMUXout, clk, OUT2, OUTPUT, addSubMUX );
+	MUX mux2( imValueMUXout, clk, Imm, OUT1, imValueMUX );
+	ALU al1( Result, imValueMUXout, addSubMUXout, Select );
+	
+
+initial begin
+    clk = 0;
+    forever #10 clk = ~clk;
+end
+ 
+initial begin
+
+	// Operation set 1
+	$display("\nOperation      Binary   | Decimal");
+	$display("---------------------------------");
+#20
+	Read_Addr = 32'b0000000000000100xxxxxxxx11111111;//loadi 4,X,0xFF
+#20
+    $display("load v1        %b | %d",Result,Result);
+   
+#20
+	Read_Addr = 32'b0000000000000110xxxxxxxx10101010;//loadi 6,X,0xAA
+#20
+    $display("load v2        %b | %d",Result,Result); 
+    
+#20
+	Read_Addr = 32'b0000000000000011xxxxxxxx10111011;//loadi 3,X,0xBB
+#20
+   $display("load v3        %b | %d",Result,Result);
+    
+#20
+	Read_Addr = 32'b00000001000001010000011000000011;//add 5,6,3
+#20
+    $display("add v4 (v2+v3) %b | %d  (Here it's overflow)",Result,Result);
+    
+#20
+	Read_Addr = 32'b00000010000000010000010000000101;//and 1,4,5
+#20
+    $display("and v5 (v1,v4) %b | %d",Result,Result);
+   
+#20
+	Read_Addr = 32'b00000011000000100000000100000110;//or 2,1,6
+#20
+    $display("or v6 (v5,v2)  %b | %d",Result,Result);
+    
+#20
+	Read_Addr = 32'b0000100000001111xxxxxxxx00000010;//mov 7,X,2
+#20
+    $display("copy v7 (v6)   %b | %d",Result,Result);
+    
+#20
+	Read_Addr = 32'b00001001000001000000111100000011;//sub 4,7,3
+#20
+    $display("sub v8 (v7-v3) %b | %d",Result,Result);
+    
+    // Operation set 2
+    
+$display("\nOperation      Binary   | Decimal");
+	$display("---------------------------------");
+#20
+	Read_Addr = 32'b0000000000000100xxxxxxxx00001101;//loadi 4,X,0xFF
+#20
+    $display("load v1        %b | %d",Result,Result);
+   
+#20
+	Read_Addr = 32'b0000000000000110xxxxxxxx00101101;//loadi 6,X,0xAA
+#20
+    $display("load v2        %b | %d",Result,Result); 
+    
+#20
+	Read_Addr = 32'b0000000000000011xxxxxxxx00100001;//loadi 3,X,0xBB
+#20
+   $display("load v3        %b | %d",Result,Result);
+    
+#20
+	Read_Addr = 32'b00000001000001010000011000000011;//add 5,6,3
+#20
+    $display("add v4 (v2+v3) %b | %d",Result,Result);
+    
+#20
+	Read_Addr = 32'b00000010000000010000010000000101;//and 1,4,5
+#20
+    $display("and v5 (v1,v4) %b | %d",Result,Result);
+   
+#20
+	Read_Addr = 32'b00000011000000100000000100000110;//or 2,1,6
+#20
+    $display("or v6 (v5,v2)  %b | %d",Result,Result);
+    
+#20
+	Read_Addr = 32'b0000100000001111xxxxxxxx00000010;//mov 7,X,2
+#20
+    $display("copy v7 (v6)   %b | %d",Result,Result);
+    
+#20
+	Read_Addr = 32'b00001001000001000000111100000011;//sub 4,7,3
+#20
+    $display("sub v8 (v7-v3) %b | %d",Result,Result);
+   
+    $finish;
+end
+endmodule
+
 
 
 
