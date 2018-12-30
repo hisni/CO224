@@ -73,13 +73,13 @@ module counter(clk, reset, Read_addr );
 endmodule
 
 // ******** Multiplexer ********
-module MUX( OUTPUT, clk, INPUT1, INPUT2, CTRL );
+module MUX( OUTPUT, INPUT1, INPUT2, CTRL );
 	input [7:0] INPUT1, INPUT2;
 	output [7:0] OUTPUT;
-	input CTRL, clk;
+	input CTRL;
 	reg [7:0] OUTPUT;
 
-	always @(negedge clk)
+	always @( INPUT1, INPUT2, CTRL )
 	begin
 		case( CTRL )
 			1'b0 : begin OUTPUT <= INPUT1; end
@@ -93,7 +93,7 @@ module TwosComplement( OUTPUT, INPUT );
 	input signed [7:0] INPUT;
 	output signed [7:0] OUTPUT;
 
-	assign OUTPUT = ~INPUT + 8'b00000001;
+	assign OUTPUT[7:0] =-INPUT[7:0];
 
 endmodule
 
@@ -158,7 +158,7 @@ module CU( instruction, OUT1addr, OUT2addr, INaddr, Imm, Select, addSubMUX, imVa
 			8'b00001001 : begin //sub
 				assign Select = instruction[26:24];		//Needed For ALU selection
 				assign Imm = instruction[7:0];			//*****Ignore*****
-				assign addSubMUX = 1'b0;				//2's complements of Source 2
+				assign addSubMUX = 1'b1;				//2's complements of Source 2
 				assign imValueMUX = 1'b1;				//Select from Source 1
 				assign OUT1addr = instruction[2:0];		//Source 1
 				assign OUT2addr = instruction[10:8];	//Source 2
@@ -192,6 +192,7 @@ module Processor();
 	//
 endmodule
 
+
 module test;
 
 	reg [31:0] Read_Addr;
@@ -208,10 +209,10 @@ module test;
 	Instruction_reg ir1(clk, Read_Addr, instruction);
 	CU cu1( instruction, OUT1addr, OUT2addr, INaddr, Imm, Select, addSubMUX, imValueMUX );
 	regfile8x8a rf1( clk, INaddr, Result, OUT1addr, OUT1, OUT2addr, OUT2 );
-	TwosComplement cmp1( OUTPUT, OUT2 );
-	MUX mux1( addSubMUXout, clk, OUT2, OUTPUT, addSubMUX );
-	MUX mux2( imValueMUXout, clk, Imm, OUT1, imValueMUX );
-	ALU al1( Result, imValueMUXout, addSubMUXout, Select );
+	TwosComplement cmp1( OUTPUT, OUT1 );
+	MUX mux1( addSubMUXout, OUT1, OUTPUT, addSubMUX );
+	MUX mux2( imValueMUXout, Imm, addSubMUXout, imValueMUX );
+	ALU al1( Result, imValueMUXout, OUT2, Select );
 	
 
 initial begin
@@ -239,7 +240,7 @@ initial begin
     
 	Read_Addr = 32'b00000001000001010000011000000011;//add 5,6,3
 #40
-    $display("add v4 (v2+v3) %b | %d  (Here it's overflow)",Result,Result);
+    $display("add v4 (v2+v3) %b | %d	(Here it's overflow)",Result,Result);
 
 	Read_Addr = 32'b00000010000000010000010000000101;//and 1,4,5
 #40
