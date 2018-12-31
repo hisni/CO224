@@ -90,8 +90,8 @@ endmodule
 
 // ******** 2's Complement ********
 module TwosComplement( OUTPUT, INPUT );
-	input signed [7:0] INPUT;
-	output signed [7:0] OUTPUT;
+	input [7:0] INPUT;
+	output [7:0] OUTPUT;
 
 	assign OUTPUT[7:0] =-INPUT[7:0];
 
@@ -140,10 +140,10 @@ module CU( instruction, OUT1addr, OUT2addr, INaddr, Imm, Select, addSubMUX, imVa
 			8'b00001000 : begin  //mov
 				assign Select = instruction[26:24];		//Needed For ALU selection
 				assign Imm = instruction[7:0];			//*****Ignore*****
-				assign addSubMUX = 1'b0;				//*****Ignore*****
+				assign addSubMUX = 1'b0;				//Source 1
 				assign imValueMUX = 1'b1;				//Select from Source 1
 				assign OUT1addr = instruction[2:0];		//Source 1
-				assign OUT2addr = instruction[10:8];	//*****Ignore*****
+				assign OUT2addr = instruction[10:8];		//*****Ignore*****
 				assign INaddr = instruction[18:16];		//Destination Address
 				end
 			8'b00000001 : begin //add
@@ -224,41 +224,41 @@ initial begin
 	// Operation set 1
 	$display("\nOperation      Binary   | Decimal");
 	$display("---------------------------------");
+	//		00000000
+	//			00000000
 	//				00000000
-	//						00000000
-	//								00000000
-	//										00000000
+	//					00000000
 	Read_Addr = 32'b0000000000000100xxxxxxxx11111111;//loadi 4,X,0xFF
 #20
-    $display("load v1        %b | %d",Result,Result);
+    $display("load r4        %b | %d",Result,Result);
    
 	Read_Addr = 32'b0000000000000110xxxxxxxx10101010;//loadi 6,X,0xAA
 #20
-    $display("load v2        %b | %d",Result,Result); 
+    $display("load r6        %b | %d",Result,Result); 
     
 	Read_Addr = 32'b0000000000000011xxxxxxxx10111011;//loadi 3,X,0xBB
 #20
-	$display("load v3        %b | %d",Result,Result);
+	$display("load r3        %b | %d",Result,Result);
     
 	Read_Addr = 32'b00000001000001010000011000000011;//add 5,6,3
 #20
-    $display("add v4 (v2+v3) %b | %d	(Here it's overflow)",Result,Result);
+    $display("add r5 (r6+r3) %b | %d  ****",Result,Result);
 
 	Read_Addr = 32'b00000010000000010000010000000101;//and 1,4,5
 #20
-    $display("and v5 (v1,v4) %b | %d",Result,Result);
+    $display("and r1 (r4,r5) %b | %d",Result,Result);
 
 	Read_Addr = 32'b00000011000000100000000100000110;//or 2,1,6
 #20
-    $display("or v6 (v5,v2)  %b | %d",Result,Result);
+    $display("or r2 (r1,r6)  %b | %d",Result,Result);
 
 	Read_Addr = 32'b0000100000001111xxxxxxxx00000010;//mov 7,X,2
 #20
-    $display("copy v7 (v6)   %b | %d",Result,Result);
+    $display("copy r7 (r2)   %b | %d",Result,Result);
 
 	Read_Addr = 32'b00001001000001000000111100000011;//sub 4,7,3
 #20
-    $display("sub v8 (v7-v3) %b | %d",Result,Result);
+    $display("sub r4 (r7-r3) %b | %d",Result,Result);
     
 // Operation set 2
     
@@ -267,35 +267,35 @@ $display("\nOperation      Binary   | Decimal");
 
 	Read_Addr = 32'b0000000000000100xxxxxxxx00001101;//loadi 4,X,0xFF
 #20
-    $display("load v1        %b | %d",Result,Result);
+    $display("load r4        %b | %d",Result,Result);
    
 	Read_Addr = 32'b0000000000000110xxxxxxxx00101101;//loadi 6,X,0xAA
 #20
-    $display("load v2        %b | %d",Result,Result); 
+    $display("load r6        %b | %d",Result,Result); 
 
 	Read_Addr = 32'b0000000000000011xxxxxxxx00100001;//loadi 3,X,0xBB
 #20
-   $display("load v3        %b | %d",Result,Result);
+   $display("load r3        %b | %d",Result,Result);
 
 	Read_Addr = 32'b00000001000001010000011000000011;//add 5,6,3
 #20
-    $display("add v4 (v2+v3) %b | %d",Result,Result);
+    $display("add r5 (r3+r6) %b | %d",Result,Result);
 
 	Read_Addr = 32'b00000010000000010000010000000101;//and 1,4,5
 #20
-    $display("and v5 (v1,v4) %b | %d",Result,Result);
+    $display("and r1 (r4,r5) %b | %d",Result,Result);
 
 	Read_Addr = 32'b00000011000000100000000100000110;//or 2,1,6
 #20
-    $display("or v6 (v5,v2)  %b | %d",Result,Result);
+    $display("or r2 (r1,r6)  %b | %d",Result,Result);
 
 	Read_Addr = 32'b0000100000001111xxxxxxxx00000010;//mov 7,X,2
 #20
-    $display("copy v7 (v6)   %b | %d",Result,Result);
+    $display("move r7 (r2)   %b | %d",Result,Result);
    
    	Read_Addr = 32'b00001001000001000000111100000011;//sub 4,7,3
 #20
-    $display("sub v8 (v7-v3) %b | %d",Result,Result);
+    $display("sub r4 (r7-r3) %b | %d",Result,Result);
    
     $finish;
 end
