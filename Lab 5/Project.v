@@ -206,15 +206,14 @@ module test;
 	wire addSubMUX, imValueMUX;
 
 
-	Instruction_reg ir1(clk, Read_Addr, instruction);
-	CU cu1( instruction, OUT1addr, OUT2addr, INaddr, Imm, Select, addSubMUX, imValueMUX );
-	regfile8x8a rf1( clk, INaddr, Result, OUT1addr, OUT1, OUT2addr, OUT2 );
-	TwosComplement cmp1( OUTPUT, OUT1 );
-	MUX mux1( addSubMUXout, OUT1, OUTPUT, addSubMUX );
-	MUX mux2( imValueMUXout, Imm, addSubMUXout, imValueMUX );
-	ALU al1( Result, imValueMUXout, OUT2, Select );
+	Instruction_reg ir1(clk, Read_Addr, instruction);	//Instruction Regiter
+	CU cu1( instruction, OUT1addr, OUT2addr, INaddr, Imm, Select, addSubMUX, imValueMUX );	//Control Unit
+	regfile8x8a rf1( clk, INaddr, Result, OUT1addr, OUT1, OUT2addr, OUT2 );	//Register File
+	TwosComplement tcomp( OUTPUT, OUT1 );		//2'sComplement
+	MUX addsubMUX( addSubMUXout, OUT1, OUTPUT, addSubMUX );		//2's complement MUX
+	MUX immValMUX( imValueMUXout, Imm, addSubMUXout, imValueMUX );	//Imediate Value MUX
+	ALU alu1( Result, imValueMUXout, OUT2, Select );	//ALU
 	
-
 initial begin
     clk = 0;
     forever #10 clk = ~clk;
@@ -225,37 +224,40 @@ initial begin
 	// Operation set 1
 	$display("\nOperation      Binary   | Decimal");
 	$display("---------------------------------");
-
+	//				00000000
+	//						00000000
+	//								00000000
+	//										00000000
 	Read_Addr = 32'b0000000000000100xxxxxxxx11111111;//loadi 4,X,0xFF
-#40
+#20
     $display("load v1        %b | %d",Result,Result);
    
 	Read_Addr = 32'b0000000000000110xxxxxxxx10101010;//loadi 6,X,0xAA
-#40
+#20
     $display("load v2        %b | %d",Result,Result); 
     
 	Read_Addr = 32'b0000000000000011xxxxxxxx10111011;//loadi 3,X,0xBB
-#40
+#20
 	$display("load v3        %b | %d",Result,Result);
     
 	Read_Addr = 32'b00000001000001010000011000000011;//add 5,6,3
-#40
+#20
     $display("add v4 (v2+v3) %b | %d	(Here it's overflow)",Result,Result);
 
 	Read_Addr = 32'b00000010000000010000010000000101;//and 1,4,5
-#40
+#20
     $display("and v5 (v1,v4) %b | %d",Result,Result);
 
 	Read_Addr = 32'b00000011000000100000000100000110;//or 2,1,6
-#40
+#20
     $display("or v6 (v5,v2)  %b | %d",Result,Result);
 
 	Read_Addr = 32'b0000100000001111xxxxxxxx00000010;//mov 7,X,2
-#40
+#20
     $display("copy v7 (v6)   %b | %d",Result,Result);
 
 	Read_Addr = 32'b00001001000001000000111100000011;//sub 4,7,3
-#40
+#20
     $display("sub v8 (v7-v3) %b | %d",Result,Result);
     
 // Operation set 2
@@ -264,35 +266,35 @@ $display("\nOperation      Binary   | Decimal");
 	$display("---------------------------------");
 
 	Read_Addr = 32'b0000000000000100xxxxxxxx00001101;//loadi 4,X,0xFF
-#40
+#20
     $display("load v1        %b | %d",Result,Result);
    
 	Read_Addr = 32'b0000000000000110xxxxxxxx00101101;//loadi 6,X,0xAA
-#40
+#20
     $display("load v2        %b | %d",Result,Result); 
 
 	Read_Addr = 32'b0000000000000011xxxxxxxx00100001;//loadi 3,X,0xBB
-#40
+#20
    $display("load v3        %b | %d",Result,Result);
 
 	Read_Addr = 32'b00000001000001010000011000000011;//add 5,6,3
-#40
+#20
     $display("add v4 (v2+v3) %b | %d",Result,Result);
 
 	Read_Addr = 32'b00000010000000010000010000000101;//and 1,4,5
-#40
+#20
     $display("and v5 (v1,v4) %b | %d",Result,Result);
 
 	Read_Addr = 32'b00000011000000100000000100000110;//or 2,1,6
-#40
+#20
     $display("or v6 (v5,v2)  %b | %d",Result,Result);
 
 	Read_Addr = 32'b0000100000001111xxxxxxxx00000010;//mov 7,X,2
-#40
+#20
     $display("copy v7 (v6)   %b | %d",Result,Result);
    
    	Read_Addr = 32'b00001001000001000000111100000011;//sub 4,7,3
-#40
+#20
     $display("sub v8 (v7-v3) %b | %d",Result,Result);
    
     $finish;
