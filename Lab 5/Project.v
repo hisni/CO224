@@ -15,7 +15,7 @@ module ALU( RESULT, DATA1, DATA2, SELECT );
 	always @(DATA1,DATA2,SELECT)
     	begin
         case ( SELECT )
-         0 : Res = DATA1;		//Forward ( loadi, mov )
+         0 : Res = DATA1;			//Forward ( loadi, mov )
          1 : Res = DATA1 + DATA2;	//Addition ( add, sub )
          2 : Res = DATA1 & DATA2;	//Bitwise AND ( and )
          3 : Res = DATA1 | DATA2;	//Bitwise OR ( or )
@@ -122,81 +122,39 @@ module CU( instruction, OUT1addr, OUT2addr, INaddr, Imm, Select, addSubMUX, imVa
 
 	reg [2:0] OUT1addr,OUT2addr,INaddr,Select;
 	reg [7:0] Imm;
-	reg addSubMUX,imValueMUX; 
+	reg addSubMUX,imValueMUX;
 
-	always @(instruction) 
+	
+	always @(instruction)
 		begin
+			assign Select = instruction[26:24];
+			assign Imm = instruction[7:0];
+			assign OUT1addr = instruction[2:0];
+			assign OUT2addr = instruction[10:8];
+			assign INaddr = instruction[18:16];
+			assign imValueMUX = 1'b1;
+			assign addSubMUX = 1'b0;	
+			
 			case(instruction[31:24])
 				
 			8'b00000000 : begin  //loadi
-				assign Select = instruction[26:24];		//Needed For ALU selection
-				assign Imm = instruction[7:0];			//Immediate Value
-				assign addSubMUX = 1'b0;				//*****Ignore*****
-				assign imValueMUX = 1'b0;				//CS Select Imm Value for ALU
-				assign OUT1addr = instruction[2:0];		//*****Ignore*****
-				assign OUT2addr = instruction[10:8];	//*****Ignore*****
-				assign INaddr = instruction[18:16];		//Destination Address
-				end
-			8'b00001000 : begin  //mov
-				assign Select = instruction[26:24];		//Needed For ALU selection
-				assign Imm = instruction[7:0];			//*****Ignore*****
-				assign addSubMUX = 1'b0;				//Source 1
-				assign imValueMUX = 1'b1;				//Select from Source 1
-				assign OUT1addr = instruction[2:0];		//Source 1
-				assign OUT2addr = instruction[10:8];		//*****Ignore*****
-				assign INaddr = instruction[18:16];		//Destination Address
-				end
-			8'b00000001 : begin //add
-				assign Select = instruction[26:24];		//Needed For ALU selection
-				assign Imm = instruction[7:0];			//*****Ignore*****
-				assign addSubMUX = 1'b0;				//Select directly from Source 2
-				assign imValueMUX = 1'b1;				//Select from Source 1
-				assign OUT1addr = instruction[2:0];		//Source 1
-				assign OUT2addr = instruction[10:8];	//Source 2
-				assign INaddr = instruction[18:16];		//Destination Address
-				end
-			8'b00001001 : begin //sub
-				assign Select = instruction[26:24];		//Needed For ALU selection
-				assign Imm = instruction[7:0];			//*****Ignore*****
-				assign addSubMUX = 1'b1;				//2's complements of Source 2
-				assign imValueMUX = 1'b1;				//Select from Source 1
-				assign OUT1addr = instruction[2:0];		//Source 1
-				assign OUT2addr = instruction[10:8];	//Source 2
-				assign INaddr = instruction[18:16];		//Destination Address
-				end
-			8'b00000010 : begin //and
-				assign Select = instruction[26:24];		//Needed For ALU selection
-				assign Imm = instruction[7:0];			//*****Ignore*****
-				assign addSubMUX = 1'b0;				//Select directly from Source 2
-				assign imValueMUX = 1'b1;				//Select from Source 1
-				assign OUT1addr = instruction[2:0];		//Source 1
-				assign OUT2addr = instruction[10:8];	//Source 2
-				assign INaddr = instruction[18:16];		//Destination Address
-				end
-			8'b00000011 : begin //or
-				assign Select = instruction[26:24];		//Needed For ALU selection
-				assign Imm = instruction[7:0];			//*****Ignore*****
-				assign addSubMUX = 1'b0;				//Select directly from Source 2
-				assign imValueMUX = 1'b1;				//Select from Source 1
-				assign OUT1addr = instruction[2:0];		//Source 1
-				assign OUT2addr = instruction[10:8];	//Source 2
-				assign INaddr = instruction[18:16];		//Destination Address
+				assign imValueMUX = 1'b0;
 				end
 			
+			8'b00001001 : begin //sub
+				assign addSubMUX = 1'b1;
+				end
+
 			endcase
 		end
 endmodule
 
 // ******** Processor ********
-module Processor();
-	//
-endmodule
-
-
-module test;
-
-	reg [31:0] Read_Addr;
-	reg clk;
+module Processor( Read_Addr, Result, clk );
+	
+	input [31:0] Read_Addr;
+	input clk;
+	output [7:0] Result;
 	wire [7:0] Result;
 
 	wire [31:0] instruction;
@@ -205,7 +163,6 @@ module test;
 	wire [7:0] imValueMUXout, addSubMUXout;
 	wire addSubMUX, imValueMUX;
 
-
 	Instruction_reg ir1(clk, Read_Addr, instruction);	//Instruction Regiter
 	CU cu1( instruction, OUT1addr, OUT2addr, INaddr, Imm, Select, addSubMUX, imValueMUX );	//Control Unit
 	regfile8x8a rf1( clk, INaddr, Result, OUT1addr, OUT1, OUT2addr, OUT2 );	//Register File
@@ -213,92 +170,102 @@ module test;
 	MUX addsubMUX( addSubMUXout, OUT1, OUTPUT, addSubMUX );		//2's complement MUX
 	MUX immValMUX( imValueMUXout, Imm, addSubMUXout, imValueMUX );	//Imediate Value MUX
 	ALU alu1( Result, imValueMUXout, OUT2, Select );	//ALU
+
+endmodule
+
+
+module test;
+
+	reg [31:0] Read_Addr;
+	wire [7:0] Result;
+	reg clk;
+	Processor simpleP( Read_Addr, Result, clk );
+
+	initial begin
+		clk = 0;
+		forever #10 clk = ~clk;
+	end
 	
-initial begin
-    clk = 0;
-    forever #10 clk = ~clk;
-end
- 
-initial begin
+	initial begin
 
 	// Operation set 1
 	$display("\nOperation      Binary   | Decimal");
 	$display("---------------------------------");
-	//		00000000
-	//			00000000
-	//				00000000
 	//					00000000
-	Read_Addr = 32'b0000000000000100xxxxxxxx11111111;//loadi 4,X,0xFF
-#20
-    $display("load r4        %b | %d",Result,Result);
-   
-	Read_Addr = 32'b0000000000000110xxxxxxxx10101010;//loadi 6,X,0xAA
-#20
-    $display("load r6        %b | %d",Result,Result); 
-    
-	Read_Addr = 32'b0000000000000011xxxxxxxx10111011;//loadi 3,X,0xBB
-#20
+	//							00000000
+	//									00000000
+	//											00000000
+		Read_Addr = 32'b0000000000000100xxxxxxxx11111111;//loadi 4,X,0xFF
+	#20
+		$display("load r4        %b | %d",Result,Result);
+	
+		Read_Addr = 32'b0000000000000110xxxxxxxx10101010;//loadi 6,X,0xAA
+	#20
+		$display("load r6        %b | %d",Result,Result); 
+		
+		Read_Addr = 32'b0000000000000011xxxxxxxx10111011;//loadi 3,X,0xBB
+	#20
+		$display("load r3        %b | %d",Result,Result);
+		
+		Read_Addr = 32'b00000001000001010000011000000011;//add 5,6,3
+	#20
+		$display("add r5 (r6+r3) %b | %d  ****",Result,Result);
+
+		Read_Addr = 32'b00000010000000010000010000000101;//and 1,4,5
+	#20
+		$display("and r1 (r4,r5) %b | %d",Result,Result);
+
+		Read_Addr = 32'b00000011000000100000000100000110;//or 2,1,6
+	#20
+		$display("or r2 (r1,r6)  %b | %d",Result,Result);
+
+		Read_Addr = 32'b0000100000001111xxxxxxxx00000010;//mov 7,X,2
+	#20
+		$display("copy r7 (r2)   %b | %d",Result,Result);
+
+		Read_Addr = 32'b00001001000001000000111100000011;//sub 4,7,3
+	#20
+		$display("sub r4 (r7-r3) %b | %d",Result,Result);
+		
+	// Operation set 2
+		
+	$display("\nOperation      Binary   | Decimal");
+		$display("---------------------------------");
+
+		Read_Addr = 32'b0000000000000100xxxxxxxx00001101;//loadi 4,X,0xFF
+	#20
+		$display("load r4        %b | %d",Result,Result);
+	
+		Read_Addr = 32'b0000000000000110xxxxxxxx00101101;//loadi 6,X,0xAA
+	#20
+		$display("load r6        %b | %d",Result,Result); 
+
+		Read_Addr = 32'b0000000000000011xxxxxxxx00100001;//loadi 3,X,0xBB
+	#20
 	$display("load r3        %b | %d",Result,Result);
-    
-	Read_Addr = 32'b00000001000001010000011000000011;//add 5,6,3
-#20
-    $display("add r5 (r6+r3) %b | %d  ****",Result,Result);
 
-	Read_Addr = 32'b00000010000000010000010000000101;//and 1,4,5
-#20
-    $display("and r1 (r4,r5) %b | %d",Result,Result);
+		Read_Addr = 32'b00000001000001010000011000000011;//add 5,6,3
+	#20
+		$display("add r5 (r3+r6) %b | %d",Result,Result);
 
-	Read_Addr = 32'b00000011000000100000000100000110;//or 2,1,6
-#20
-    $display("or r2 (r1,r6)  %b | %d",Result,Result);
+		Read_Addr = 32'b00000010000000010000010000000101;//and 1,4,5
+	#20
+		$display("and r1 (r4,r5) %b | %d",Result,Result);
 
-	Read_Addr = 32'b0000100000001111xxxxxxxx00000010;//mov 7,X,2
-#20
-    $display("copy r7 (r2)   %b | %d",Result,Result);
+		Read_Addr = 32'b00000011000000100000000100000110;//or 2,1,6
+	#20
+		$display("or r2 (r1,r6)  %b | %d",Result,Result);
 
-	Read_Addr = 32'b00001001000001000000111100000011;//sub 4,7,3
-#20
-    $display("sub r4 (r7-r3) %b | %d",Result,Result);
-    
-// Operation set 2
-    
-$display("\nOperation      Binary   | Decimal");
-	$display("---------------------------------");
-
-	Read_Addr = 32'b0000000000000100xxxxxxxx00001101;//loadi 4,X,0xFF
-#20
-    $display("load r4        %b | %d",Result,Result);
-   
-	Read_Addr = 32'b0000000000000110xxxxxxxx00101101;//loadi 6,X,0xAA
-#20
-    $display("load r6        %b | %d",Result,Result); 
-
-	Read_Addr = 32'b0000000000000011xxxxxxxx00100001;//loadi 3,X,0xBB
-#20
-   $display("load r3        %b | %d",Result,Result);
-
-	Read_Addr = 32'b00000001000001010000011000000011;//add 5,6,3
-#20
-    $display("add r5 (r3+r6) %b | %d",Result,Result);
-
-	Read_Addr = 32'b00000010000000010000010000000101;//and 1,4,5
-#20
-    $display("and r1 (r4,r5) %b | %d",Result,Result);
-
-	Read_Addr = 32'b00000011000000100000000100000110;//or 2,1,6
-#20
-    $display("or r2 (r1,r6)  %b | %d",Result,Result);
-
-	Read_Addr = 32'b0000100000001111xxxxxxxx00000010;//mov 7,X,2
-#20
-    $display("move r7 (r2)   %b | %d",Result,Result);
-   
-   	Read_Addr = 32'b00001001000001000000111100000011;//sub 4,7,3
-#20
-    $display("sub r4 (r7-r3) %b | %d",Result,Result);
-   
-    $finish;
-end
+		Read_Addr = 32'b0000100000001111xxxxxxxx00000010;//mov 7,X,2
+	#20
+		$display("move r7 (r2)   %b | %d",Result,Result);
+	
+		Read_Addr = 32'b00001001000001000000111100000011;//sub 4,7,3
+	#20
+		$display("sub r4 (r7-r3) %b | %d",Result,Result);
+	
+		$finish;
+	end
 endmodule
 
 
