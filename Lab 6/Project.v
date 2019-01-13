@@ -43,7 +43,7 @@ module regfile8x8a ( clk, INaddr, IN, OUT1addr, OUT1, OUT2addr, OUT2, busy_wait 
 	assign OUT1 = OUT1reg[7:0];
 	assign OUT2 = OUT2reg[7:0];
 
-	always @(posedge clk) begin
+	always @(posedge clk) begin			//Read at postive edge of Clock
 		for(i=0;i<8;i=i+1) begin
 			OUT1reg[i] = regMemory[ OUT1addr*8 + i ];
 			OUT2reg[i] = regMemory[ OUT2addr*8 + i ];
@@ -51,7 +51,7 @@ module regfile8x8a ( clk, INaddr, IN, OUT1addr, OUT1, OUT2addr, OUT2, busy_wait 
 	end	
 	
 
-	always @(negedge clk) begin
+	always @(negedge clk) begin			//Write at negative edge of Clock
 		if (!busy_wait)begin
 			for(i=0;i<8;i=i+1)begin
 				regMemory[INaddr*8 + i] = IN[i];
@@ -71,8 +71,8 @@ module counter(clk, reset, Read_addr );
 	always @(negedge clk)
 	begin
 		case(reset)
-			1'b1 : begin Read_addr = 32'd0; end
-			1'b0 : begin Read_addr = Read_addr + 3'b100; end
+			1'b1 : begin Read_addr = 32'd0; end					//Reset if reset = 1
+			1'b0 : begin Read_addr = Read_addr + 3'b100; end	//PC = PC + 4, if reset = 0
 		endcase
 	end
 endmodule
@@ -98,7 +98,7 @@ module TwosComplement( OUTPUT, INPUT );
 	input [7:0] INPUT;
 	output [7:0] OUTPUT;
 
-	assign OUTPUT[7:0] =-INPUT[7:0];
+	assign OUTPUT[7:0] = -INPUT[7:0];
 
 endmodule
 
@@ -169,6 +169,68 @@ module CU( instruction, busy_wait, OUT1addr, OUT2addr, INaddr, Imm, Select, addS
 	end
 endmodule
 
+// ******** Data Memory ********
+module data_mem( clk, rst, read, write, address, write_data, read_data,	busy_wait );
+	input clk;
+	input rst;
+	input read;
+	input write;
+	input[7:0] address;
+	input[7:0] write_data;
+	output[7:0] read_data;
+	output busy_wait;
+	
+	reg busy_wait = 1'b0;
+	reg[7:0] read_data;
+
+
+	integer  i;
+	
+	// Declare memory 256x8 bits 
+	reg [7:0] memory_array [255:0];
+	//reg [7:0] memory_ram_q [255:0];
+
+	always @(posedge rst)
+	begin
+		if (rst)
+		begin
+			for (i=0;i<256; i=i+1)
+				memory_array[i] <= 0;
+		end
+	end
+	
+	always @( rst, read, write, address, write_data )
+	begin
+		if ( write && !read )
+		begin
+			 
+			busy_wait <= 1;
+			
+			repeat(100)
+			begin
+				@(posedge clk);
+			end
+
+			memory_array[address] = write_data;
+			busy_wait <= 0;
+		end
+		if (!write && read)
+		begin
+			
+			busy_wait <= 1;
+			repeat(100)
+			begin
+				@(posedge clk);
+			end
+
+			read_data = memory_array[address];
+			busy_wait <= 0;
+		end
+		
+	end
+	
+endmodule
+
 // ******** Processor ********
 module Processor( Read_Addr, DataMemMUXout, clk, rst );
 	
@@ -194,79 +256,18 @@ module Processor( Read_Addr, DataMemMUXout, clk, rst );
 	MUX immValMUX( imValueMUXout, Imm, addSubMUXout, imValueMUX );	//Imediate Value MUX
 	MUX DataMemMUX( DataMemMUXout, read_data ,Result, dmMUX);		//Data Memory MUX 
 	ALU alu1( Result, imValueMUXout, OUT2, Select );	//ALU
-	data_mem dm( clk, rst, read, write, address, Result, read_data,	busy_wait );
+	data_mem dm( clk, rst, read, write, address, Result, read_data,	busy_wait);
 
 
 endmodule
 
-// ******** Data Memory ********
-module data_mem( clk, rst, read, write, address, write_data, read_data,	busy_wait );
-	input clk;
-	input rst;
-	input read;
-	input write;
-	input[7:0] address;
-	input[7:0] write_data;
-	output[7:0] read_data;
-	output busy_wait;
-
-	reg busy_wait = 1'b0;
-	reg[7:0] read_data;
-
-	integer  i;
-	// Declare memory 256x8 bits 
-	reg [7:0] memory_array [255:0];
-	//reg [7:0] memory_ram_q [255:0];
-
-	always @(posedge rst)
-	begin
-		if (rst)
-		begin
-			for (i=0;i<256; i=i+1)
-				memory_array[i] <= 0;
-		end
-	end
-
-	
-	always @(*)
-	begin
-		if (write && !read)
-		begin
-			busy_wait <= 1;
-			//#100			// artificially delay 100 cycles
-			memory_array[address] = write_data;
-			busy_wait <= 0;
-		end
-		if (!write && read )
-		begin
-			busy_wait <= 1;
-			//#100			// artificially delay 100 cycles
-			read_data = memory_array[address];
-			busy_wait <= 0;
-		end
-	end
-	
-endmodule
 
 module testDM;
 	reg [31:0] Read_Addr;
 	wire [7:0] Result;
 	reg clk,rst;
-	Processor simpleP( Read_Addr, Result, clk, rst );
-
-	initial
-	begin
-
-		$dumpfile("wavedata.vcd");
-	    $dumpvars(0,testDM);
-		
-		//clk = 1'b0;
-		//reset = 1'b0;
-		rst = 1'b0;
-		rst = 1'b1;
-		$monitor("DataIn = %d", Result);
-		
-	end
+	wire read,write;
+	Processor simpleP( Read_Addr, Result, clk, rst);
 
 	initial begin
 		clk = 0;
@@ -274,72 +275,46 @@ module testDM;
 	end
 
 	initial begin
+		$display("\nPrinting The results of MUX that is before register file( output from ALU OR DM )\n");
+		rst = 0;
+		#20
+		rst = 1;
+		#20
+		rst = 0;
 		#20
 		Read_Addr = 32'b0000000000000110xxxxxxxx00101101;//loadi r6,X,45
 		#20
+		$display("loadi 6,X,45(After 1 CC)    %b | %d",Result,Result);
 		Read_Addr = 32'b0000000000000011xxxxxxxx01000001;//loadi r3,X,65
 		#20
+		$display("loadi 6,X,45(After 1 CC)    %b | %d",Result,Result);
 		Read_Addr = 32'b0000010100011001xxxxxxxx00000110;//store 25,X,r6
-		#20
+		#2000
+		$display("store 25,X,6(After 100 CC)  %b | %d",Result,Result);
 		Read_Addr = 32'b0000010100010000xxxxxxxx00000011;//store 16,X,r3
-	#100
-	 	/*// Operation set
-		$display("\nOperation         Binary   | Decimal");
-		$display("------------------------------------");
-		
-		rst = 1'b0;
-		rst = 1'b1;
-		Read_Addr = 32'b0000000000000110xxxxxxxx00101101;//loadi r6,X,45
+		#2000
+		$display("store 16,X,3(After 100 CC)  %b | %d",Result,Result );
+		Read_Addr = 32'b0000010000000111xxxxxxxx00011001;//load r7,X,25
 		#20
-		$display("load r6           %b | %d",Result,Result); 
-		
-		Read_Addr = 32'b0000000000000011xxxxxxxx01000001;//loadi r3,X,65
+		$display("load 7,X,25(After 1 CC)     %b | %d",Result,Result);
+	 	#180
+		$display("load 7,X,25(After 10 CC)    %b | %d",Result,Result);
+	 	#800
+		$display("load 7,X,25(After 50 CC)    %b | %d",Result,Result);
+	 	#1000
+		$display("load 7,X,25(After 100 CC)   %b | %d",Result,Result);
+	 	Read_Addr = 32'b0000010000001000xxxxxxxx00010000;//load r8,X,25
 		#20
-		$display("load r3           %b | %d",Result,Result);
-		
-
-		Read_Addr = 32'b0000010100011001xxxxxxxx00000110;//store 25,X,r6
-		
-		
-		Read_Addr = 32'b0000010100010000xxxxxxxx00000011;//store 16,X,r3
-		//$display("store r3 to #16   %b | %d",In,In);
-
+		$display("load 8,X,25(After 1 CC)     %b | %d  (Should be 65)",Result,Result);
+		#1980
+		$display("load 8,X,25(After 100 CC)   %b | %d",Result,Result);
+		Read_Addr = 32'b00000001000001010000011100001000;//add 5,7,8
 		#20
-		Read_Addr = 32'b0000010000000011xxxxxxxx00011001;//load r3,X,25
-		$display("load r3 from #25  %b | %d ",Result,Result);
-
-		*/
-		/*
-		#160
-			rst = 1'b0;
-			mx3 = 1'b0;
-			Read_Addr = 32'b0000010000000110xxxxxxxx00010000;//load r6,X,16
-		#160
-		#400
-		$display("load r6 from #16  %b | %d",In,In);
-
-		#100
-			rst = 1'b0;
-			mx3 = 1'b1;
-			Read_Addr = 32'b00000001000001010000011000000011;//add 5,6,3
-		#100
-		#400
-			$display("add r6+r3         %b | %d",In,In);
-
-		#180
-			rst = 1'b0;
-			mx3 = 1'b1;
-			Read_Addr = 32'b00001001000001000000011000000011;//sub 4,6,3
-		#180
-		#400
-			$display("sub r6-r3         %b | %d",In,In);
-
+		$display("add 5,7,8(After 1 CC)       %b | %d",Result,Result);
+		Read_Addr = 32'b00001001000001010000100000000111;//sub 4,8,7
+		#20
+		$display("sub 4,8,4(After 1 CC)       %b | %d",Result,Result);
 		
-		
-		
-		
-		
-		*/
 		$finish;
 	end
 
