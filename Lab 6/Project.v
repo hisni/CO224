@@ -103,6 +103,9 @@ module TwosComplement( OUTPUT, INPUT );
 endmodule
 
 // ******** Instruction Register ********
+
+//Yet to implement properly
+//For now takes instruction as input and returns the same instructions
 module Instruction_reg ( clk, Read_Addr, instruction );
 	input clk;
 	input [31:0] Read_Addr;
@@ -132,7 +135,7 @@ module CU( instruction, busy_wait, OUT1addr, OUT2addr, INaddr, Imm, Select, addS
 		
 	always @(instruction) begin
 		if ( !busy_wait ) begin
-			assign Select = instruction[26:24];
+			assign Select = instruction[26:24];		//Common Signals
 			assign Imm = instruction[7:0];
 			assign OUT1addr = instruction[2:0];
 			assign OUT2addr = instruction[10:8];
@@ -145,21 +148,21 @@ module CU( instruction, busy_wait, OUT1addr, OUT2addr, INaddr, Imm, Select, addS
 			
 			case(instruction[31:24])
 				
-			8'b00000000 : begin  //loadi
+			8'b00000000 : begin			//loadi
 				assign imValueMUX = 1'b0;
 				end
 			
-			8'b00001001 : begin //sub
+			8'b00001001 : begin			//sub
 				assign addSubMUX = 1'b1;
 				end
 
-			8'b00000100 : begin //load
+			8'b00000100 : begin			//load
 				assign read = 1'b1;
 				assign dmMUX = 1'b0;
 				assign address = instruction[7:0];	
 			end
 			
-			8'b00000101: begin //store
+			8'b00000101: begin			//store
 				assign write = 1'b1;
 				assign address = instruction[23:16];
 			end		
@@ -183,14 +186,13 @@ module data_mem( clk, rst, read, write, address, write_data, read_data,	busy_wai
 	reg busy_wait = 1'b0;
 	reg[7:0] read_data;
 
-
 	integer  i;
 	
 	// Declare memory 256x8 bits 
 	reg [7:0] memory_array [255:0];
 	//reg [7:0] memory_ram_q [255:0];
 
-	always @(posedge rst)
+	always @(posedge rst)			//Reset Data memory
 	begin
 		if (rst)
 		begin
@@ -199,13 +201,11 @@ module data_mem( clk, rst, read, write, address, write_data, read_data,	busy_wai
 		end
 	end
 	
-	always @( rst, read, write, address, write_data )
-	begin
-		if ( write && !read )
+	always @( rst, read, write, address, write_data ) begin
+		if ( write && !read )			//Write to Data memory
 		begin
-			 
 			busy_wait <= 1;
-			
+			//Artificial delay 100 cycles
 			repeat(100)
 			begin
 				@(posedge clk);
@@ -214,10 +214,9 @@ module data_mem( clk, rst, read, write, address, write_data, read_data,	busy_wai
 			memory_array[address] = write_data;
 			busy_wait <= 0;
 		end
-		if (!write && read)
-		begin
-			
+		if (!write && read) begin		//Read from Data memory
 			busy_wait <= 1;
+			//Artificial delay 100 cycles
 			repeat(100)
 			begin
 				@(posedge clk);
@@ -226,7 +225,6 @@ module data_mem( clk, rst, read, write, address, write_data, read_data,	busy_wai
 			read_data = memory_array[address];
 			busy_wait <= 0;
 		end
-		
 	end
 	
 endmodule
@@ -247,7 +245,6 @@ module Processor( Read_Addr, DataMemMUXout, clk, rst );
 	wire addSubMUX, imValueMUX, dmMUX;
 	wire read, write, busy_wait, rst;
 	
-
 	Instruction_reg ir1(clk, Read_Addr, instruction);	//Instruction Regiter
 	CU cu1( instruction, busy_wait, OUT1addr, OUT2addr, INaddr, Imm, Select, addSubMUX, imValueMUX, dmMUX, read, write, address );	//Control Unit
 	regfile8x8a rf1( clk, INaddr, Result, OUT1addr, OUT1, OUT2addr, OUT2, busy_wait );	//Register File
@@ -256,8 +253,7 @@ module Processor( Read_Addr, DataMemMUXout, clk, rst );
 	MUX immValMUX( imValueMUXout, Imm, addSubMUXout, imValueMUX );	//Imediate Value MUX
 	MUX DataMemMUX( DataMemMUXout, read_data ,Result, dmMUX);		//Data Memory MUX 
 	ALU alu1( Result, imValueMUXout, OUT2, Select );	//ALU
-	data_mem dm( clk, rst, read, write, address, Result, read_data,	busy_wait);
-
+	data_mem dm( clk, rst, read, write, address, Result, read_data,	busy_wait);	//Data Memory
 
 endmodule
 
