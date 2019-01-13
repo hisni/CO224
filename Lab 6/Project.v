@@ -52,7 +52,7 @@ module regfile8x8a ( clk, INaddr, IN, OUT1addr, OUT1, OUT2addr, OUT2, busy_wait 
 	
 
 	always @(negedge clk) begin			//Write at negative edge of Clock
-		if (!busy_wait)begin
+		if ( !busy_wait )begin			//Stall if DM access is happening
 			for(i=0;i<8;i=i+1)begin
 				regMemory[INaddr*8 + i] = IN[i];
 			end
@@ -62,18 +62,21 @@ module regfile8x8a ( clk, INaddr, IN, OUT1addr, OUT1, OUT2addr, OUT2, busy_wait 
 endmodule
 
 // ******** Program Counter ********
-module counter(clk, reset, Read_addr );
+module counter(clk, reset, Read_addr, busy_wait );
 	input clk;
 	input reset;
+	input busy_wait;
 	output [31:0] Read_addr;
 	reg Read_addr;
 
 	always @(negedge clk)
 	begin
-		case(reset)
-			1'b1 : begin Read_addr = 32'd0; end					//Reset if reset = 1
-			1'b0 : begin Read_addr = Read_addr + 3'b100; end	//PC = PC + 4, if reset = 0
-		endcase
+		if ( !busy_wait ) begin			//Stall if DM access is happening
+			case(reset)
+				1'b1 : begin Read_addr = 32'd0; end					//Reset if reset = 1
+				1'b0 : begin Read_addr = Read_addr + 3'b100; end	//PC = PC + 4, if reset = 0
+			endcase
+		end
 	end
 endmodule
 
@@ -134,7 +137,7 @@ module CU( instruction, busy_wait, OUT1addr, OUT2addr, INaddr, Imm, Select, addS
 	reg addSubMUX,imValueMUX, dmMUX, read, write;
 		
 	always @(instruction) begin
-		if ( !busy_wait ) begin
+		if ( !busy_wait ) begin						//Stall if DM access is happening
 			assign Select = instruction[26:24];		//Common Signals
 			assign Imm = instruction[7:0];
 			assign OUT1addr = instruction[2:0];
@@ -279,37 +282,45 @@ module testDM;
 		rst = 0;
 		#20
 		Read_Addr = 32'b0000000000000110xxxxxxxx00101101;//loadi r6,X,45
+		$display("loadi 6,X,45");
 		#20
-		$display("loadi 6,X,45(After 1 CC)    %b | %d",Result,Result);
+		$display("After 1 CC	%b | %d\n",Result,Result);
 		Read_Addr = 32'b0000000000000011xxxxxxxx01000001;//loadi r3,X,65
+		$display("loadi 6,X,45");
 		#20
-		$display("loadi 6,X,45(After 1 CC)    %b | %d",Result,Result);
+		$display("After 1 CC	%b | %d\n",Result,Result);
 		Read_Addr = 32'b0000010100011001xxxxxxxx00000110;//store 25,X,r6
+		$display("store 25,X,6");
 		#2000
-		$display("store 25,X,6(After 100 CC)  %b | %d",Result,Result);
+		$display("After 100 CC	%b | %d\n",Result,Result);
 		Read_Addr = 32'b0000010100010000xxxxxxxx00000011;//store 16,X,r3
+		$display("store 16,X,3");
 		#2000
-		$display("store 16,X,3(After 100 CC)  %b | %d",Result,Result );
+		$display("After 100 CC	%b | %d\n",Result,Result );
 		Read_Addr = 32'b0000010000000111xxxxxxxx00011001;//load r7,X,25
+		$display("load 7,X,25");
 		#20
-		$display("load 7,X,25(After 1 CC)     %b | %d",Result,Result);
+		$display("After 1 CC	%b | %d",Result,Result);
 	 	#180
-		$display("load 7,X,25(After 10 CC)    %b | %d",Result,Result);
+		$display("After 10 CC	%b | %d",Result,Result);
 	 	#800
-		$display("load 7,X,25(After 50 CC)    %b | %d",Result,Result);
+		$display("After 50 CC	%b | %d",Result,Result);
 	 	#1000
-		$display("load 7,X,25(After 100 CC)   %b | %d",Result,Result);
+		$display("After 100 CC	%b | %d\n",Result,Result);
 	 	Read_Addr = 32'b0000010000001000xxxxxxxx00010000;//load r8,X,25
+		$display("load 8,X,25");
 		#20
-		$display("load 8,X,25(After 1 CC)     %b | %d  (Should be 65)",Result,Result);
-		#1980
-		$display("load 8,X,25(After 100 CC)   %b | %d",Result,Result);
+		$display("After 1 CC	%b | %d  (Should be 65, new value not loaded. need 100CC)",Result,Result);
+		#1980	
+		$display("After 100 CC	%b | %d\n",Result,Result);
 		Read_Addr = 32'b00000001000001010000011100001000;//add 5,7,8
+		$display("add 5,7,8");
 		#20
-		$display("add 5,7,8(After 1 CC)       %b | %d",Result,Result);
+		$display("After 1 CC	%b | %d\n",Result,Result);
 		Read_Addr = 32'b00001001000001010000100000000111;//sub 4,8,7
+		$display("sub 4,8,7");
 		#20
-		$display("sub 4,8,4(After 1 CC)       %b | %d",Result,Result);
+		$display("After 1 CC	%b | %d\n",Result,Result);
 		
 		$finish;
 	end
