@@ -80,7 +80,7 @@ module counter(clk, reset, Read_addr, busy_wait );
 	end
 endmodule
 
-// ******** Multiplexer ********
+// ******** Multiplexer 2x1 ********
 module MUX( OUTPUT, INPUT1, INPUT2, CTRL );
 	input [7:0] INPUT1, INPUT2;
 	output [7:0] OUTPUT;
@@ -94,6 +94,44 @@ module MUX( OUTPUT, INPUT1, INPUT2, CTRL );
 			1'b1 : begin OUTPUT <= INPUT2; end
 		endcase
 	end
+endmodule
+
+// ******** Multiplexer 8x1 ********
+module MUX8x1( OUTPUT, INPUT1, INPUT2, INPUT3, INPUT4, INPUT5, INPUT6, INPUT7, INPUT8, CTRL );
+	input [7:0] INPUT1, INPUT2, INPUT3, INPUT4, INPUT5, INPUT6, INPUT7, INPUT8;
+	output [7:0] OUTPUT;
+	input [2:0]CTRL;
+	reg [7:0] OUTPUT;
+
+	always @( INPUT1, INPUT2, INPUT3, INPUT4, INPUT5, INPUT6, INPUT7, INPUT8, CTRL )
+	begin
+		case( CTRL )
+			3'b000 : begin OUTPUT <= INPUT1; end
+			3'b001 : begin OUTPUT <= INPUT2; end
+			3'b010 : begin OUTPUT <= INPUT3; end
+			3'b011 : begin OUTPUT <= INPUT4; end
+			3'b100 : begin OUTPUT <= INPUT5; end
+			3'b101 : begin OUTPUT <= INPUT6; end
+			3'b110 : begin OUTPUT <= INPUT7; end
+			3'b111 : begin OUTPUT <= INPUT8; end
+		endcase
+	end
+endmodule
+
+// ******** Comparator ********
+module Comparator( Out, Input1, Input2 );
+	input [3:0] Input1;
+	input [3:0] Input2;
+	output Out;
+
+	wire out1,out2,out3,out4;
+
+	xnor xnor1( out1, Input1[0], Input2[0] );
+	xnor xnor2( out2, Input1[1], Input2[1] );
+	xnor xnor3( out3, Input1[2], Input2[2] );
+	xnor xnor4( out4, Input1[3], Input2[3] );
+	and and1( Out, out1, out2, out3, out4 );
+	
 endmodule
 
 // ******** 2's Complement ********
@@ -232,6 +270,68 @@ module data_mem( clk, rst, read, write, address, write_data, read_data,	busy_wai
 	
 endmodule
 
+// ******** Data Memory Cache ********
+module data_cache( clk, rst, read, write, address, write_data, read_data, busy_wait ,
+					DMread, DMwrite, DMaddress, DMwrite_data, DMread_data, DMbusy_wait );
+	input clk;
+    input rst;
+
+    input read;
+    input write;
+    input [7:0] address;
+    input [7:0] write_data;
+    output [7:0] read_data;
+    output busy_wait;
+
+	output DMread;
+	output DMwrite;
+    output [6:0] DMaddress;
+    output [15:0] DMwrite_data;
+    input [15:0] DMread_data;
+	input DMbusy_wait;
+
+	reg [15:0] DMwrite_data;
+	reg [7:0] read_data;
+	reg [6:0] DMaddress;
+	reg read,write;
+	reg busy_wait = 1'b0;
+
+	integer  i;
+	reg [7:0] cache_ram [15:0];
+	
+	wire cout;
+	wire hit;
+	reg valid [7:0];
+	reg dirty [7:0];
+	wire [3:0] cTAG;
+	reg [3:0] cacheTAG [7:0];
+	wire [3:0] tag;
+	wire [2:0] index;
+	wire offset;
+
+	assign offset = address[0];
+	assign index = address[3:1];
+	assign tag = address[7:4];
+
+	always @(posedge rst)begin
+		if(rst)begin
+			for (i=0; i<8; i=i+1)begin
+				valid [i] <= 0;
+				dirty [i] <= 0;
+			end	
+		end
+	end
+
+	//Look for HIT
+	MUX8x1 TAGmux( cTAG, cacheTAG[0], cacheTAG[1], cacheTAG[2], cacheTAG[3], cacheTAG[4], cacheTAG[5], cacheTAG[6], cacheTAG[7], index );
+	comparator cm1( cout, tag, cTAG );
+	AND and1( hit, cout, valid[index] );
+
+
+
+
+endmodule
+	
 // ******** Processor ********
 module Processor( Read_Addr, DataMemMUXout, clk, rst );
 	
@@ -259,7 +359,6 @@ module Processor( Read_Addr, DataMemMUXout, clk, rst );
 	data_mem dm( clk, rst, read, write, address, Result, read_data,	busy_wait);	//Data Memory
 
 endmodule
-
 
 module testDM;
 	reg [31:0] Read_Addr;
