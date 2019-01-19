@@ -246,8 +246,8 @@ module data_mem( clk, rst, read, write, address, write_data, read_data,	busy_wai
 		if ( write && !read )			//Write to Data memory
 		begin
 			busy_wait <= 1;
-			//Artificial delay 100 cycles
-			repeat(100)
+			//Artificial delay 98 cycles
+			repeat(98)
 			begin
 				@(posedge clk);
 			end
@@ -257,8 +257,8 @@ module data_mem( clk, rst, read, write, address, write_data, read_data,	busy_wai
 		end
 		if ( !write && read ) begin		//Read from Data memory
 			busy_wait <= 1;
-			//Artificial delay 100 cycles
-			repeat(100)
+			//Artificial delay 98 cycles
+			repeat(98)
 			begin
 				@(posedge clk);
 			end
@@ -272,11 +272,10 @@ endmodule
 
 // ******** Data Memory Cache ********
 module data_cache( clk, rst, read, write, address, write_data, read_data, busy_wait ,
-					DMread, DMwrite, DMaddress, DMwrite_data, DMread_data, DMbusy_wait,hit );
+					DMread, DMwrite, DMaddress, DMwrite_data, DMread_data, DMbusy_wait );
 	input clk;
     input rst;
-	output hit;
-
+	
     input read;
     input write;
     input [7:0] address;
@@ -330,83 +329,111 @@ module data_cache( clk, rst, read, write, address, write_data, read_data, busy_w
 
 	//Look for HIT
 	//MUX8x1 TAGmux( cTAG, cacheTAG[0], cacheTAG[1], cacheTAG[2], cacheTAG[3], cacheTAG[4], cacheTAG[5], cacheTAG[6], cacheTAG[7], index );
+	
 	Comparator cm1( cout, tag, cacheTAG[index] );
 	and and1( hit, cout, valid[index] );
-	/*
-	always @( read, write, address, write_data ) begin
+	
+	always @( clk ) begin
+	
 		if ( write && !read )begin			//Write to Data memory
 			if( hit ) begin
 				cache_ram[ 2*index+offset ] = write_data;
 			end
+
 			if( !hit ) begin
-				DMaddress = address[7:1];
+				
+				begin
+					@(posedge clk )begin
+						if( dirty[index] && !DMbusy_wait ) begin
+							DMwrite_data[7:0] = cache_ram[ 2*index ];
+							DMwrite_data[15:8] = cache_ram[ 2*index+1 ];
+							DMread = 1'b0;
+							DMwrite = 1'b1;
 
-				if( dirty[index] ) begin
-					DMwrite_data[7:0] = cache_ram[ 2*index ];
-					DMwrite_data[15:8] = cache_ram[ 2*index+1 ];
-					DMread = 1'b0;
-					DMwrite = 1'b1;
+							DMaddress[2:0] = address[3:1];
+							DMaddress[6:3] = cacheTAG[ index ];
+
+							dirty[index] = 1'b0;
+
+						end  
+					end
 				end
 
-				if( !DMbusy_wait ) begin
-					DMread = 1'b0;
-					DMwrite = 1'b1;
-					cache_ram[ 2*index ] = DMread_data[7:0];
-					cache_ram[ 2*index+1 ] = DMread_data[15:8];
-					cacheTAG[ index ] = address[7:4];
-					valid[index] = 1'b1;
-					dirty[index] = 1'b0;
+				begin
+					@(negedge clk )begin
+						if( !dirty[index] && !DMbusy_wait ) begin
+							DMaddress = address[7:1];
+							DMread = 1'b1;
+							DMwrite = 1'b0;
+							cache_ram[ 2*index ] = DMread_data[7:0];
+							cache_ram[ 2*index+1 ] = DMread_data[15:8];
+							cacheTAG[ index ] = address[7:4];
+							valid[index] = 1'b1;
+							dirty[index] = 1'b1;
 
-					cache_ram[ 2*index+offset ] = write_data;
+							cache_ram[ 2*index+offset ] = write_data;
+						end
+					end
 				end
-
 			end
 		end
 		
 		if ( !write && read ) begin		//Read from Data memory
+
 			if( hit ) begin
 				read_data = cache_ram[ 2*index+offset ];
 			end
 
 			if( !hit ) begin
 
-				DMaddress = address[7:1];
+				begin
+					@(posedge clk)begin
+						if( dirty[index] && !DMbusy_wait ) begin
+							DMaddress = address[7:1];
+							DMwrite_data[7:0] = cache_ram[ 2*index ];
+							DMwrite_data[15:8] = cache_ram[ 2*index+1 ];
+							DMread = 1'b0;
+							DMwrite = 1'b1;
 
-				if( dirty[index] ) begin
-					DMwrite_data[7:0] = cache_ram[ 2*index ];
-					DMwrite_data[15:8] = cache_ram[ 2*index+1 ];
-					DMread = 1'b0;
-					DMwrite = 1'b1;
+							DMaddress[2:0] = address[3:1];
+							DMaddress[6:3] = cacheTAG[ index ];
+
+							dirty[index] = 1'b0;
+						end  
+					end
 				end
 				
-				if( !DMbusy_wait ) begin
-					DMread = 1'b0;
-					DMwrite = 1'b1;
-					cache_ram[ 2*index ] = DMread_data[7:0];
-					cache_ram[ 2*index+1 ] = DMread_data[15:8];
-					cacheTAG[ index ] = address[7:4];
-					valid[index] = 1'b1;
-					dirty[index] = 1'b0;
-				end
+				begin
+					@(negedge clk)begin
+						if( !dirty[index] && !DMbusy_wait ) begin
+							DMaddress = address[7:1];
+							DMread = 1'b1;
+							DMwrite = 1'b0;
+							cache_ram[ 2*index ] = DMread_data[7:0];
+							cache_ram[ 2*index+1 ] = DMread_data[15:8];
+							cacheTAG[ index ] = address[7:4];
+							valid[index] = 1'b1;
+							dirty[index] = 1'b0;
 
-				read_data = cache_ram[ 2*index+offset ];
+							read_data = cache_ram[ 2*index+offset ];
+						end
+					end
+				end
 
 			end
 		
 		end
 		
 	end
-	*/
 
 endmodule
 
 // ******** Processor ********
-module Processor( Read_Addr, hit, clk, rst );
+module Processor( Read_Addr, DataMemMUXout, clk, rst );
 	
 	input [31:0] Read_Addr;
 	input clk,rst;
-	//output [6:0] DMaddress;
-	output hit;
+	output [7:0] DataMemMUXout;
 
 	wire [7:0] Result;
 	wire [31:0] instruction;
@@ -437,8 +464,8 @@ endmodule
 
 module testDM;
 	reg [31:0] Read_Addr;
-	//wire [6:0] Result;
-	wire Result;
+	wire [7:0] Result;
+	//wire Result;
 	reg clk,rst;
 
 	Processor simpleP( Read_Addr, Result, clk, rst);
@@ -458,6 +485,7 @@ module testDM;
 		#20
 		rst = 0;
 		#20
+		
 		Read_Addr = 32'b0000000000000110xxxxxxxx00101101;//loadi r6,X,45
 		$display("loadi 6,X,45");
 		#20
@@ -466,6 +494,7 @@ module testDM;
 		$display("loadi 6,X,45");
 		#20
 		$display("After 1 CC	%b | %d\n",Result,Result);
+
 		Read_Addr = 32'b0000010100011001xxxxxxxx00000110;//store 25,X,r6
 		$display("store 25,X,6");
 		#2000
@@ -474,27 +503,35 @@ module testDM;
 		$display("store 16,X,3");
 		#20
 		$display("After 1 CC	%b | %d\n",Result,Result );
+		
 		Read_Addr = 32'b0000010000000111xxxxxxxx00011001;//load r7,X,25
 		$display("load 7,X,25");
 		#20
 		$display("After 1 CC	%b | %d (Earliar it took 100CC )\n",Result,Result);
-		Read_Addr = 32'b0000010000001000xxxxxxxx00010000;//load r8,X,25
-		$display("load 8,X,25");
-		#20
+		Read_Addr = 32'b0000010000001000xxxxxxxx00011000;//load r8,X,24
+		$display("load 8,X,24");
+		#2000
 		$display("After 1 CC	%b | %d (Earliar it took 100CC )\n",Result,Result);
+		
 		Read_Addr = 32'b0000000000000011xxxxxxxx01011111;//loadi r3,X,95
 		$display("loadi 3,X,95");
 		#20
 		$display("After 1 CC	%b | %d\n",Result,Result);
+		
 		Read_Addr = 32'b0000010100111000xxxxxxxx00000011;//store 56,X,r3
 		$display("store 56,X,3");
+		#20
+		$display("After 1 CC	%b | %d (It will be a miss)",Result,Result);
+		#1980
+		$display("After 100 CC	%b | %d (takes 100CC to Write-Back)\n",Result,Result);
 		#2000
-		$display("After 1 CC	%b | %d\n",Result,Result);
+		$display("After 200 CC	%b | %d (takes 100CC to Fetch from DM)\n",Result,Result);
+		
 		Read_Addr = 32'b0000010000001000xxxxxxxx00111000;//load r8,X,56
 		$display("load 8,X,56");
 		#20
-		$display("After 1 CC	%b | %d\n",Result,Result);
-		/*
+		$display("After 1 CC	%b | %d (Its a hit takes 1CC)\n",Result,Result);
+		
 		Read_Addr = 32'b00000001000001010000011100001000;//add 5,7,8
 		$display("add 5,7,8");
 		#20
@@ -503,7 +540,7 @@ module testDM;
 		$display("sub 4,8,7");
 		#20
 		$display("After 1 CC	%b | %d\n",Result,Result);
-		*/
+		
 		$finish;
 	end
 
