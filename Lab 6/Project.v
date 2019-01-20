@@ -95,7 +95,7 @@ module MUX( OUTPUT, INPUT1, INPUT2, CTRL );
 		endcase
 	end
 endmodule
-
+/*
 // ******** Multiplexer 8x1 ********
 module MUX8x1( OUTPUT, INPUT1, INPUT2, INPUT3, INPUT4, INPUT5, INPUT6, INPUT7, INPUT8, CTRL );
 	input [3:0] INPUT1, INPUT2, INPUT3, INPUT4, INPUT5, INPUT6, INPUT7, INPUT8;
@@ -117,6 +117,7 @@ module MUX8x1( OUTPUT, INPUT1, INPUT2, INPUT3, INPUT4, INPUT5, INPUT6, INPUT7, I
 		endcase
 	end
 endmodule
+*/
 
 // ******** Comparator ********
 module Comparator( Out, Input1, Input2 );
@@ -229,15 +230,14 @@ module data_mem( clk, rst, read, write, address, write_data, read_data,	busy_wai
 
 	integer  i;
 	
-	// Declare memory 256x8 bits 
+	// Declare memory 128x16 bits 
 	reg [15:0] memory_array [127:0];
-	//reg [7:0] memory_ram_q [255:0];
 
 	always @(posedge rst)			//Reset Data memory
 	begin
-		if (rst)
+		if ( rst )
 		begin
-			for (i=0;i<16; i=i+1)
+			for (i=0;i<128; i=i+1)
 				memory_array[i] <= 0;
 		end
 	end
@@ -251,7 +251,6 @@ module data_mem( clk, rst, read, write, address, write_data, read_data,	busy_wai
 			begin
 				@(posedge clk);
 			end
-
 			memory_array[address] = write_data;
 			busy_wait <= 0;
 		end
@@ -276,14 +275,14 @@ module data_cache( clk, rst, read, write, address, write_data, read_data, busy_w
 	input clk;
     input rst;
 	
-    input read;
+    input read;					//Cache links with Control unit
     input write;
     input [7:0] address;
     input [7:0] write_data;
     output [7:0] read_data;
     output busy_wait;
 
-	output DMread;
+	output DMread;				//Cache links with Data Memory
 	output DMwrite;
     output [6:0] DMaddress;
     output [15:0] DMwrite_data;
@@ -295,27 +294,31 @@ module data_cache( clk, rst, read, write, address, write_data, read_data, busy_w
 	reg DMread,DMwrite;
 	reg [7:0] read_data;
 	wire busy_wait;
-
+	
 	assign busy_wait = DMbusy_wait;
 
 	integer  i;
+
+	//Cache Memory 16x8 bits 
+	//16 Bytes // 2Bytes/Block
 	reg [7:0] cache_ram [15:0];
 	
 	wire cout;
 	wire hit;
 	reg valid [7:0];
 	reg dirty [7:0];
-	wire [3:0] cTAG;
 	reg [3:0] cacheTAG [7:0];
 	wire [3:0] tag;
 	wire [2:0] index;
 	wire offset;
+	reg flag = 1'b0;
+	
 
 	assign offset = address[0];
 	assign index = address[3:1];
 	assign tag = address[7:4];
 
-	always @(posedge rst)begin
+	always @(posedge rst)begin				//Cache Reset
 		if(rst)begin
 			for (i=0; i<8; i=i+1)begin
 				valid [i] <= 0;
@@ -328,50 +331,47 @@ module data_cache( clk, rst, read, write, address, write_data, read_data, busy_w
 	end
 
 	//Look for HIT
-	//MUX8x1 TAGmux( cTAG, cacheTAG[0], cacheTAG[1], cacheTAG[2], cacheTAG[3], cacheTAG[4], cacheTAG[5], cacheTAG[6], cacheTAG[7], index );
-	
 	Comparator cm1( cout, tag, cacheTAG[index] );
 	and and1( hit, cout, valid[index] );
 	
 	always @( clk ) begin
 	
 		if ( write && !read )begin			//Write to Data memory
-			if( hit ) begin
+			if( hit && !DMbusy_wait ) begin
+				if( flag ) begin				//IF fetching from DM is finished store in Cache
+					cache_ram[ 2*index ] = DMread_data[7:0];
+					cache_ram[ 2*index+1 ] = DMread_data[15:8];
+					flag = 1'b0;
+				end
 				cache_ram[ 2*index+offset ] = write_data;
+				dirty[index] = 1'b1;
 			end
-
-			if( !hit ) begin
-				
+			
+			if( !hit ) begin	//If not a hit
 				begin
 					@(posedge clk )begin
-						if( dirty[index] && !DMbusy_wait ) begin
+						if( dirty[index] && !DMbusy_wait ) begin			//If dirty Write back
 							DMwrite_data[7:0] = cache_ram[ 2*index ];
-							DMwrite_data[15:8] = cache_ram[ 2*index+1 ];
+							DMwrite_data[15:8] = cache_ram[ 2*index +1 ];
+
 							DMread = 1'b0;
 							DMwrite = 1'b1;
 
 							DMaddress[2:0] = address[3:1];
 							DMaddress[6:3] = cacheTAG[ index ];
-
 							dirty[index] = 1'b0;
-
 						end  
 					end
 				end
-
 				begin
-					@(negedge clk )begin
-						if( !dirty[index] && !DMbusy_wait ) begin
+					@(negedge clk)begin
+						if( !dirty[index] && !DMbusy_wait ) begin			//If not dirty fetch from Data Memory
 							DMaddress = address[7:1];
 							DMread = 1'b1;
 							DMwrite = 1'b0;
-							cache_ram[ 2*index ] = DMread_data[7:0];
-							cache_ram[ 2*index+1 ] = DMread_data[15:8];
 							cacheTAG[ index ] = address[7:4];
 							valid[index] = 1'b1;
-							dirty[index] = 1'b1;
-
-							cache_ram[ 2*index+offset ] = write_data;
+							flag = 1'b1;
 						end
 					end
 				end
@@ -379,19 +379,22 @@ module data_cache( clk, rst, read, write, address, write_data, read_data, busy_w
 		end
 		
 		if ( !write && read ) begin		//Read from Data memory
-
-			if( hit ) begin
+			if( hit && !DMbusy_wait ) begin
+				if( flag ) begin				//IF fetching from DM is finished store in Cache
+					cache_ram[ 2*index ] = DMread_data[7:0];
+					cache_ram[ 2*index+1 ] = DMread_data[15:8];
+					flag = 1'b0;
+				end
 				read_data = cache_ram[ 2*index+offset ];
 			end
 
-			if( !hit ) begin
-
+			if( !hit ) begin		//If not a hit	
 				begin
 					@(posedge clk)begin
-						if( dirty[index] && !DMbusy_wait ) begin
-							DMaddress = address[7:1];
+						if( dirty[index] && !DMbusy_wait ) begin			//If dirty Write back
 							DMwrite_data[7:0] = cache_ram[ 2*index ];
-							DMwrite_data[15:8] = cache_ram[ 2*index+1 ];
+							DMwrite_data[15:8] = cache_ram[ 2*index +1 ];
+							
 							DMread = 1'b0;
 							DMwrite = 1'b1;
 
@@ -402,39 +405,32 @@ module data_cache( clk, rst, read, write, address, write_data, read_data, busy_w
 						end  
 					end
 				end
-				
 				begin
 					@(negedge clk)begin
-						if( !dirty[index] && !DMbusy_wait ) begin
+						if( !dirty[index] && !DMbusy_wait ) begin			//If not dirty fetch from Data Memory
 							DMaddress = address[7:1];
 							DMread = 1'b1;
 							DMwrite = 1'b0;
-							cache_ram[ 2*index ] = DMread_data[7:0];
-							cache_ram[ 2*index+1 ] = DMread_data[15:8];
 							cacheTAG[ index ] = address[7:4];
 							valid[index] = 1'b1;
-							dirty[index] = 1'b0;
-
-							read_data = cache_ram[ 2*index+offset ];
-						end
+							flag = 1'b1;
+						end	
 					end
 				end
-
-			end
-		
+			end			
 		end
-		
 	end
 
 endmodule
 
 // ******** Processor ********
-module Processor( Read_Addr, DataMemMUXout, clk, rst );
+module Processor( Read_Addr, DataMemMUXout , clk, rst );
 	
 	input [31:0] Read_Addr;
 	input clk,rst;
 	output [7:0] DataMemMUXout;
-
+	
+	wire [7:0] hit;
 	wire [7:0] Result;
 	wire [31:0] instruction;
 	wire [2:0] OUT1addr,OUT2addr,INaddr,Select;
@@ -447,17 +443,17 @@ module Processor( Read_Addr, DataMemMUXout, clk, rst );
 	wire [15:0] DMwrite_data, DMread_data;
 	wire DMread, DMwrite, DMbusy_wait;
 	
-	Instruction_reg ir1(clk, Read_Addr, instruction);	//Instruction Regiter
+	Instruction_reg ir1(clk, Read_Addr, instruction);				//Instruction Regiter
 	CU cu1( instruction, busy_wait, OUT1addr, OUT2addr, INaddr, Imm, Select, addSubMUX, imValueMUX, dmMUX, read, write, address );	//Control Unit
-	regfile8x8a rf1( clk, INaddr, Result, OUT1addr, OUT1, OUT2addr, OUT2, busy_wait );	//Register File
-	TwosComplement tcomp( OUTPUT, OUT1 );		//2'sComplement
-	MUX addsubMUX( addSubMUXout, OUT1, OUTPUT, addSubMUX );		//2's complement MUX
+	regfile8x8a rf1( clk, INaddr, DataMemMUXout, OUT1addr, OUT1, OUT2addr, OUT2, busy_wait );			//Register File
+	TwosComplement tcomp( OUTPUT, OUT1 );							//2'sComplement
+	MUX addsubMUX( addSubMUXout, OUT1, OUTPUT, addSubMUX );			//2's complement MUX
 	MUX immValMUX( imValueMUXout, Imm, addSubMUXout, imValueMUX );	//Imediate Value MUX
 	MUX DataMemMUX( DataMemMUXout, read_data ,Result, dmMUX);		//Data Memory MUX 
-	ALU alu1( Result, imValueMUXout, OUT2, Select );	//ALU
+	ALU alu1( Result, imValueMUXout, OUT2, Select );				//ALU
 	
 	data_cache dmc( clk, rst, read, write, address, Result, read_data, busy_wait ,
-					DMread, DMwrite, DMaddress, DMwrite_data, DMread_data, DMbusy_wait );
+					DMread, DMwrite, DMaddress, DMwrite_data, DMread_data, DMbusy_wait );		//Data Memory Cache
 	data_mem dm( clk, rst, DMread, DMwrite, DMaddress, DMwrite_data, DMread_data, DMbusy_wait);	//Data Memory
 
 endmodule
@@ -465,7 +461,6 @@ endmodule
 module testDM;
 	reg [31:0] Read_Addr;
 	wire [7:0] Result;
-	//wire Result;
 	reg clk,rst;
 
 	Processor simpleP( Read_Addr, Result, clk, rst);
@@ -476,7 +471,6 @@ module testDM;
 	end
 
 	initial begin
-
 		
 		$display("\nPrinting The results of MUX that is before register file( output from ALU OR DM )\n");
 		rst = 0;
@@ -510,7 +504,7 @@ module testDM;
 		$display("After 1 CC	%b | %d (Earliar it took 100CC )\n",Result,Result);
 		Read_Addr = 32'b0000010000001000xxxxxxxx00011000;//load r8,X,24
 		$display("load 8,X,24");
-		#2000
+		#20
 		$display("After 1 CC	%b | %d (Earliar it took 100CC )\n",Result,Result);
 		
 		Read_Addr = 32'b0000000000000011xxxxxxxx01011111;//loadi r3,X,95
@@ -521,9 +515,9 @@ module testDM;
 		Read_Addr = 32'b0000010100111000xxxxxxxx00000011;//store 56,X,r3
 		$display("store 56,X,3");
 		#20
-		$display("After 1 CC	%b | %d (It will be a miss)",Result,Result);
+		$display("After 1 CC	%b | %d (It will be a (Write) miss & Dirty)",Result,Result);
 		#1980
-		$display("After 100 CC	%b | %d (takes 100CC to Write-Back)\n",Result,Result);
+		$display("After 100 CC	%b | %d (takes 100CC to Write-Back)",Result,Result);
 		#2000
 		$display("After 200 CC	%b | %d (takes 100CC to Fetch from DM)\n",Result,Result);
 		
@@ -540,6 +534,32 @@ module testDM;
 		$display("sub 4,8,7");
 		#20
 		$display("After 1 CC	%b | %d\n",Result,Result);
+
+		Read_Addr = 32'b0000010000001000xxxxxxxx00011000;//load r8,X,24
+		$display("load 8,X,24");
+		#20
+		$display("After 1 CC	%b | %d (It should be 65. It is a (Read) miss & Dirty)",Result,Result);
+		#1980
+		$display("After 100 CC	%b | %d (It should be 65. Takes 100CC to Write Back)",Result,Result);
+		#2000
+		$display("After 200 CC	%b | %d (It should be 65. Takes 100CC to Fetch from DM)\n",Result,Result);
+		
+		#20
+		Read_Addr = 32'b00000001000001010000011100001000;//add 5,7,8
+		$display("add 5,7,8");
+		#20
+		$display("After 1 CC	%b | %d\n",Result,Result);
+		Read_Addr = 32'b00001001000001010000100000000111;//sub 4,8,7
+		$display("sub 4,8,7");
+		#20
+		$display("After 1 CC	%b | %d\n",Result,Result);
+
+		Read_Addr = 32'b0000010000001000xxxxxxxx00111000;//load r8,X,56
+		$display("load 8,X,56");
+		#20
+		$display("After 1 CC	%b | %d (It should be 95. It is a (Read) miss & Not Dirty. WB not needed. Just Fetching from DM)",Result,Result);
+		#2000
+		$display("After 100 CC	%b | %d (It should be 95. Takes 100CC to to Fetching)",Result,Result);
 		
 		$finish;
 	end
