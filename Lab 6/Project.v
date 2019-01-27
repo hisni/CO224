@@ -348,32 +348,24 @@ module data_cache( clk, rst, read, write, address, write_data, read_data, busy_w
 			end
 			
 			if( !hit ) begin	//If not a hit
-				begin
-					@(posedge clk )begin
-						if( dirty[index] && !DMbusy_wait ) begin			//If dirty Write back
-							DMwrite_data[7:0] = cache_ram[ 2*index ];
-							DMwrite_data[15:8] = cache_ram[ 2*index +1 ];
+				if( dirty[index] && !DMbusy_wait ) begin			//If dirty Write back
+					DMwrite_data[7:0] = cache_ram[ 2*index ];
+					DMwrite_data[15:8] = cache_ram[ 2*index +1 ];
 
-							DMread = 1'b0;
-							DMwrite = 1'b1;
+					DMread = 1'b0;
+					DMwrite = 1'b1;
 
-							DMaddress[2:0] = address[3:1];
-							DMaddress[6:3] = cacheTAG[ index ];
-							dirty[index] = 1'b0;
-						end  
-					end
-				end
-				begin
-					@(negedge clk)begin
-						if( !dirty[index] && !DMbusy_wait ) begin			//If not dirty fetch from Data Memory
-							DMaddress = address[7:1];
-							DMread = 1'b1;
-							DMwrite = 1'b0;
-							cacheTAG[ index ] = address[7:4];
-							valid[index] = 1'b1;
-							flag = 1'b1;
-						end
-					end
+					DMaddress[2:0] = address[3:1];
+					DMaddress[6:3] = cacheTAG[ index ];
+					dirty[index] = 1'b0;
+				end  
+				else if( !dirty[index] && !DMbusy_wait ) begin			//If not dirty fetch from Data Memory
+					DMaddress = address[7:1];
+					DMread = 1'b1;
+					DMwrite = 1'b0;
+					cacheTAG[ index ] = address[7:4];
+					valid[index] = 1'b1;
+					flag = 1'b1;
 				end
 			end
 		end
@@ -389,38 +381,70 @@ module data_cache( clk, rst, read, write, address, write_data, read_data, busy_w
 			end
 
 			if( !hit ) begin		//If not a hit	
-				begin
-					@(posedge clk)begin
-						if( dirty[index] && !DMbusy_wait ) begin			//If dirty Write back
-							DMwrite_data[7:0] = cache_ram[ 2*index ];
-							DMwrite_data[15:8] = cache_ram[ 2*index +1 ];
-							
-							DMread = 1'b0;
-							DMwrite = 1'b1;
+				if( dirty[index] && !DMbusy_wait ) begin			//If dirty Write back
+					DMwrite_data[7:0] = cache_ram[ 2*index ];
+					DMwrite_data[15:8] = cache_ram[ 2*index +1 ];
 
-							DMaddress[2:0] = address[3:1];
-							DMaddress[6:3] = cacheTAG[ index ];
+					DMread = 1'b0;
+					DMwrite = 1'b1;
 
-							dirty[index] = 1'b0;
-						end  
-					end
-				end
-				begin
-					@(negedge clk)begin
-						if( !dirty[index] && !DMbusy_wait ) begin			//If not dirty fetch from Data Memory
-							DMaddress = address[7:1];
-							DMread = 1'b1;
-							DMwrite = 1'b0;
-							cacheTAG[ index ] = address[7:4];
-							valid[index] = 1'b1;
-							flag = 1'b1;
-						end	
-					end
+					DMaddress[2:0] = address[3:1];
+					DMaddress[6:3] = cacheTAG[ index ];
+					dirty[index] = 1'b0;
+				end 
+				else if( !dirty[index] && !DMbusy_wait ) begin			//If not dirty fetch from Data Memory
+					DMaddress = address[7:1];
+					DMread = 1'b1;
+					DMwrite = 1'b0;
+					cacheTAG[ index ] = address[7:4];
+					valid[index] = 1'b1;
+					flag = 1'b1;
 				end
 			end			
 		end
 	end
 
+endmodule
+
+// ******** Instruction Memory ********
+module instr_mem( clk, Reset, read, address, READ_INST, WAIT );
+	input clk,Reset;
+	input read;
+	input[5:0] address;
+	output reg [127:0] READ_INST;
+	output WAIT;
+	
+	reg WAIT = 1'b0;
+	
+	integer  i;
+	
+	always @(Reset)begin
+		if ( Reset ) begin
+			memory_array[0] = 128'b00000000000000100000000000001101000000000000001100000000010000110000010100111001000000000000001000000101001110000000000000000011;
+			memory_array[1] = 128'b00000100000001110000000000111001000001000000100000000000001110000000000000000011000000000110000100000101000110000000000000000011;
+			memory_array[2] = 128'b00000100000010000000000000011000000000010000010100000111000010000000100100000101000010000000011100000100000010000000000000111000;
+			memory_array[3] = 128'b00000100000010000000000000111001000001010011100100000000000000110000010000001000000000000001100000000101000110010000000000000010;
+			memory_array[4] = 128'b00000100000010000000000000011000000001010001100100000000000000100000010100011001000000000000001000000101000110010000000000000010;
+		end
+	end
+
+	// Declare memory 128x64 bits 
+	reg [127:0] memory_array [63:0];
+
+	always @( read ) begin
+		if ( read ) begin		//Read from Data memory
+			WAIT <= 1;
+			//Artificial delay 100 cycles
+			repeat(100)
+			begin
+				@(posedge clk);
+			end
+
+			READ_INST = memory_array[address];
+			WAIT <= 0;
+		end
+	end
+	
 endmodule
 
 // ******** Processor ********
@@ -467,281 +491,101 @@ module testDM;
 
 	initial begin
 		clk = 0;
-		forever #10 clk = ~clk;
+		forever #1 clk = ~clk;
 	end
 
 	initial begin
 		
 		$display("\nPrinting The results of MUX that is before register file( output from ALU OR DM )\n");
 		rst = 0;
-		#20
+		#2
 		rst = 1;
-		#20
+		#2
 		rst = 0;
-		#20
+		#2
 		
 		Read_Addr = 32'b0000000000000110xxxxxxxx00101101;//loadi r6,X,45
 		$display("loadi 6,X,45");
-		#20
+		#2
 		$display("After 1 CC	%b | %d\n",Result,Result);
 		Read_Addr = 32'b0000000000000011xxxxxxxx01000001;//loadi r3,X,65
-		$display("loadi 6,X,45");
-		#20
+		$display("loadi 3,X,65");
+		#2
 		$display("After 1 CC	%b | %d\n",Result,Result);
 
 		Read_Addr = 32'b0000010100011001xxxxxxxx00000110;//store 25,X,r6
 		$display("store 25,X,6");
-		#2000
-		$display("After 100 CC	%b | %d\n",Result,Result);
+		#200
+		$display("After 100 CC	%b | %d (Block is not in the cache its a miss. Takes 100CC to fetch.)\n",Result,Result);
 		Read_Addr = 32'b0000010100011000xxxxxxxx00000011;//store 24,X,r3
-		$display("store 16,X,3");
-		#20
-		$display("After 1 CC	%b | %d\n",Result,Result );
+		$display("store 24,X,3");
+		#2
+		$display("After 1 CC	%b | %d (Block is already in the cache its a hit.)\n",Result,Result );
 		
 		Read_Addr = 32'b0000010000000111xxxxxxxx00011001;//load r7,X,25
 		$display("load 7,X,25");
-		#20
+		#2
 		$display("After 1 CC	%b | %d (Earliar it took 100CC )\n",Result,Result);
 		Read_Addr = 32'b0000010000001000xxxxxxxx00011000;//load r8,X,24
 		$display("load 8,X,24");
-		#20
+		#2
 		$display("After 1 CC	%b | %d (Earliar it took 100CC )\n",Result,Result);
 		
 		Read_Addr = 32'b0000000000000011xxxxxxxx01011111;//loadi r3,X,95
 		$display("loadi 3,X,95");
-		#20
+		#2
 		$display("After 1 CC	%b | %d\n",Result,Result);
 		
 		Read_Addr = 32'b0000010100111000xxxxxxxx00000011;//store 56,X,r3
 		$display("store 56,X,3");
-		#20
+		#2
 		$display("After 1 CC	%b | %d (It will be a (Write) miss & Dirty)",Result,Result);
-		#1980
+		#198
 		$display("After 100 CC	%b | %d (takes 100CC to Write-Back)",Result,Result);
-		#2000
+		#200
 		$display("After 200 CC	%b | %d (takes 100CC to Fetch from DM)\n",Result,Result);
 		
 		Read_Addr = 32'b0000010000001000xxxxxxxx00111000;//load r8,X,56
 		$display("load 8,X,56");
-		#20
+		#2
 		$display("After 1 CC	%b | %d (Its a hit takes 1CC)\n",Result,Result);
 		
 		Read_Addr = 32'b00000001000001010000011100001000;//add 5,7,8
 		$display("add 5,7,8");
-		#20
+		#2
 		$display("After 1 CC	%b | %d\n",Result,Result);
 		Read_Addr = 32'b00001001000001010000100000000111;//sub 4,8,7
 		$display("sub 4,8,7");
-		#20
+		#2
 		$display("After 1 CC	%b | %d\n",Result,Result);
 
 		Read_Addr = 32'b0000010000001000xxxxxxxx00011000;//load r8,X,24
 		$display("load 8,X,24");
-		#20
+		#2
 		$display("After 1 CC	%b | %d (It should be 65. It is a (Read) miss & Dirty)",Result,Result);
-		#1980
+		#198
 		$display("After 100 CC	%b | %d (It should be 65. Takes 100CC to Write Back)",Result,Result);
-		#2000
+		#194
 		$display("After 200 CC	%b | %d (It should be 65. Takes 100CC to Fetch from DM)\n",Result,Result);
 		
-		#20
+		#2
 		Read_Addr = 32'b00000001000001010000011100001000;//add 5,7,8
 		$display("add 5,7,8");
-		#20
+		#2
 		$display("After 1 CC	%b | %d\n",Result,Result);
 		Read_Addr = 32'b00001001000001010000100000000111;//sub 4,8,7
 		$display("sub 4,8,7");
-		#20
+		#2
 		$display("After 1 CC	%b | %d\n",Result,Result);
 
 		Read_Addr = 32'b0000010000001000xxxxxxxx00111000;//load r8,X,56
 		$display("load 8,X,56");
-		#20
+		#2
 		$display("After 1 CC	%b | %d (It should be 95. It is a (Read) miss & Not Dirty. WB not needed. Just Fetching from DM)",Result,Result);
-		#2000
+		#198
 		$display("After 100 CC	%b | %d (It should be 95. Takes 100CC to to Fetching)",Result,Result);
 		
 		$finish;
 	end
 
 endmodule
-
-
-/*
-module test;
-
-	reg [31:0] Read_Addr;
-	wire [7:0] Result;
-	reg clk;
-	Processor simpleP( Read_Addr, Result, clk );
-
-	initial begin
-		clk = 0;
-		forever #10 clk = ~clk;
-	end
-	
-	initial begin
-
-	// Operation set 1
-	$display("\nOperation      Binary   | Decimal");
-	$display("---------------------------------");
-	//					00000000
-	//							00000000
-	//									00000000
-	//											00000000
-		Read_Addr = 32'b0000000000000100xxxxxxxx11111111;//loadi 4,X,0xFF
-	#20
-		$display("load r4        %b | %d",Result,Result);
-	
-		Read_Addr = 32'b0000000000000110xxxxxxxx10101010;//loadi 6,X,0xAA
-	#20
-		$display("load r6        %b | %d",Result,Result); 
-		
-		Read_Addr = 32'b0000000000000011xxxxxxxx10111011;//loadi 3,X,0xBB
-	#20
-		$display("load r3        %b | %d",Result,Result);
-		
-		Read_Addr = 32'b00000001000001010000011000000011;//add 5,6,3
-	#20
-		$display("add r5 (r6+r3) %b | %d  ****",Result,Result);
-
-		Read_Addr = 32'b00000010000000010000010000000101;//and 1,4,5
-	#20
-		$display("and r1 (r4,r5) %b | %d",Result,Result);
-
-		Read_Addr = 32'b00000011000000100000000100000110;//or 2,1,6
-	#20
-		$display("or r2 (r1,r6)  %b | %d",Result,Result);
-
-		Read_Addr = 32'b0000100000001111xxxxxxxx00000010;//mov 7,X,2
-	#20
-		$display("copy r7 (r2)   %b | %d",Result,Result);
-
-		Read_Addr = 32'b00001001000001000000111100000011;//sub 4,7,3
-	#20
-		$display("sub r4 (r7-r3) %b | %d",Result,Result);
-		
-	// Operation set 2
-		
-	$display("\nOperation      Binary   | Decimal");
-		$display("---------------------------------");
-
-		Read_Addr = 32'b0000000000000100xxxxxxxx00001101;//loadi 4,X,0xFF
-	#20
-		$display("load r4        %b | %d",Result,Result);
-	
-		Read_Addr = 32'b0000000000000110xxxxxxxx00101101;//loadi 6,X,0xAA
-	#20
-		$display("load r6        %b | %d",Result,Result); 
-
-		Read_Addr = 32'b0000000000000011xxxxxxxx00100001;//loadi 3,X,0xBB
-	#20
-	$display("load r3        %b | %d",Result,Result);
-
-		Read_Addr = 32'b00000001000001010000011000000011;//add 5,6,3
-	#20
-		$display("add r5 (r3+r6) %b | %d",Result,Result);
-
-		Read_Addr = 32'b00000010000000010000010000000101;//and 1,4,5
-	#20
-		$display("and r1 (r4,r5) %b | %d",Result,Result);
-
-		Read_Addr = 32'b00000011000000100000000100000110;//or 2,1,6
-	#20
-		$display("or r2 (r1,r6)  %b | %d",Result,Result);
-
-		Read_Addr = 32'b0000100000001111xxxxxxxx00000010;//mov 7,X,2
-	#20
-		$display("move r7 (r2)   %b | %d",Result,Result);
-	
-		Read_Addr = 32'b00001001000001000000111100000011;//sub 4,7,3
-	#20
-		$display("sub r4 (r7-r3) %b | %d",Result,Result);
-	
-		$finish;
-	end
-endmodule
-*/
-
-
-
-
-
-
-
-/*
-// ******** Test Register File ********
-module testregeter;
- 
-	reg [2:0] INaddr,OUT1addr,OUT2addr;
-	reg clk;
-	reg [7:0] IN;
-	wire [7:0] OUT1,OUT2;
-	reg [2:0] SELECT;
-	wire [7:0] RESULT;
- 
-	regfile8x8a regf ( clk, INaddr, IN, OUT1addr, OUT1, OUT2addr, OUT2);
-	ALU test( RESULT,OUT1,OUT2,SELECT);
-
-	initial begin
-	clk = 1'b0; end
-	always #10 clk = ~clk;
- 
-	initial begin
-
-	#5//T=5
-		IN = 12;
-		INaddr = 5;
-		OUT1addr = 5;
-		OUT2addr = 3;
-
-	#10//T=15								
-		$display("OUT1 = %d OUT2 = %d",OUT1,OUT2);
-	#20//T=35								
-		$display("OUT1 = %d OUT2 = %d",OUT1,OUT2);
-		IN = 10;
-		INaddr = 3;
-	#10//T=45
-		$display("OUT1 = %d OUT2 = %d",OUT1,OUT2);		
-	#10//T=55
-		$display("OUT1 = %d OUT2 = %d",OUT1,OUT2);
-		SELECT = 1;
-	#10//T=65
-		$display("%d + %d = %d\n",OUT1,OUT2,RESULT);	
-
-	$finish;
-
-	end
-endmodule
- 
-// ******** Test ALU ********
-module testALU;
-
-    reg [7:0] DATA1;
-    reg [7:0] DATA2;
-    reg [2:0] SELECT;
-
-    wire [7:0] RESULT;
-
-    ALU test( RESULT,DATA1,DATA2,SELECT);
-    
-    initial begin
-        // Apply inputs.
-        DATA1 = 45;	//110
-        DATA2 = 6;	//011
-
-        SELECT = 0; #100;
-	$display("%d\n",RESULT);
-
-        SELECT = 1; #100;
-	$display("%d\n",RESULT);        
-
-	SELECT = 2; #100;
-	$display("%b & %b = %b\n",DATA1,DATA2,RESULT);
-
-	SELECT = 3; #100;
-	$display("%b | %b = %b\n",DATA1,DATA2,RESULT);
-    end
-      
-endmodule
-*/
