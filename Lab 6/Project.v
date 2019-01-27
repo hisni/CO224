@@ -35,11 +35,7 @@ module regfile8x8a ( clk, INaddr, IN, OUT1addr, OUT1, OUT2addr, OUT2, busy_wait 
 	reg [63:0] regMemory = 0;
 
 	integer i;
-	/*
-	always @( INaddr,IN )begin
-		$display("Register Write Data %d in Reg %d",IN,INaddr);
-	end
-	*/
+	
 	always @(posedge clk) begin			//Read at postive edge of Clock
 		for(i=0;i<8;i=i+1) begin
 			OUT1[i] = regMemory[ OUT1addr*8 + i ];
@@ -64,14 +60,14 @@ module counter(clk, reset, Read_addr, busy_wait, InsWait );
 	input busy_wait,InsWait;
 	output reg [7:0] Read_addr = 0;
 
-	always @( reset )begin
+	always @( reset )begin		//Reset PC
 		if ( reset ) begin
 			Read_addr = -1;
 		end
 	end
 	
 	always @(posedge clk) begin
-		if ( !InsWait  && !busy_wait ) begin				//Stall if DM access is happening
+		if ( !InsWait  && !busy_wait ) begin		//Stall if DM access is happening
 			Read_addr = Read_addr + 8'b00000001;	//PC = PC + 1, if reset = 0
 		end
 	end
@@ -93,7 +89,7 @@ module MUX( OUTPUT, INPUT1, INPUT2, CTRL );
 endmodule
 
 // ******** Comparator ********
-module Comparator( Out, Input1, Input2 );
+module Comparator( Out, Input1, Input2 );	//Comapre 4bit singnals
 	input [3:0] Input1;
 	input [3:0] Input2;
 	output Out;
@@ -109,7 +105,7 @@ module Comparator( Out, Input1, Input2 );
 endmodule
 
 // ******** 2's Complement ********
-module TwosComplement( OUTPUT, INPUT );
+module TwosComplement( OUTPUT, INPUT );		//Compute 2's Complement
 	input [7:0] INPUT;
 	output [7:0] OUTPUT;
 
@@ -118,7 +114,7 @@ module TwosComplement( OUTPUT, INPUT );
 endmodule
 
 // ******** Instruction Register ********
-module Instruction_reg ( clk, Read_Ins, instruction );
+module Instruction_reg ( clk, Read_Ins, instruction );	//Gets Instruction from Instruction Memory Cache
 	input clk;
 	input [31:0] Read_Ins;
 	output [31:0] instruction;
@@ -147,9 +143,9 @@ module CU( instruction, busy_wait, OUT1addr, OUT2addr, INaddr, Imm, Select, addS
 	output reg IMread;
 	output reg [7:0] IMaddress;
 
-	always @( InsAddr )begin
-		IMaddress = InsAddr;
-		IMread = 1'b1;
+	always @( InsAddr )begin		//When new instruction addres is comes from PC
+		IMaddress = InsAddr;		//Set Instruction address
+		IMread = 1'b1;				//Assert read signal to IM cache
 	end
 
 	always @( instruction, busy_wait ) begin
@@ -286,16 +282,7 @@ module data_cache( clk, rst, read, write, address, write_data, read_data, busy_w
 	assign offset = address[0];
 	assign index = address[3:1];
 	assign tag = address[7:4];
-	/*
-	always @( address,write_data )begin
-		if ( write && !read )
-			$display("Write Data %d in Addr %d",write_data,address); 
-	end
-	always @( read_data,address )begin
-		if( !write && read )
-			$display("Load from %d - Data %d",address,read_data);
-	end
-	*/
+	
 	always @(posedge rst)begin				//Cache Reset
 		if(rst)begin
 			for (i=0; i<8; i=i+1)begin
@@ -402,7 +389,7 @@ module instr_mem( clk, Reset, read, address, READ_INST, WAIT );
 
 	integer  i;
 	
-	always @(Reset)begin
+	always @(Reset)begin		//Hardcoded set of Instructions
 		if ( Reset ) begin
 			memory_array[0] = 128'b00000000000000000000000001110000000001010001101000000000000000000000000000000000000000001111111100000101000110110000000000000000;
 			memory_array[1] = 128'b00000000000000000000000001001111000001010001110000000000000000000000000000000000000000001100100000000101000111010000000000000000;
@@ -414,7 +401,7 @@ module instr_mem( clk, Reset, read, address, READ_INST, WAIT );
 	end
 
 	always @( address ) begin
-		if ( read ) begin		//Read from Data memory
+		if ( read ) begin		//Read from Instruction memory
 			WAIT <= 1;
 			//Artificial delay 100 cycles
 			repeat(98)
@@ -468,10 +455,10 @@ module instr_cache( clk, rst, read, address, read_data, InsWait ,
 		if( rst )begin
 			InsWait = 1'b0;
 			for (i=0; i<4; i=i+1)begin
-				valid [i] <= 0;
+				valid [i] <= 0;				//Set valid bit zero
 			end	
 			for (i=0; i<16; i=i+1) begin
-				cache_ram[i] <= 0;
+				cache_ram[i] <= 0;			////Set all cache memory values to zero
 			end
 		end
 	end
@@ -481,8 +468,8 @@ module instr_cache( clk, rst, read, address, read_data, InsWait ,
 	and and1( hit, cout, valid[index] );
 	
 	always @(posedge clk ) begin
-		if( read ) begin //Read from Instruction memory
-			if( hit && !IMbusy_wait ) begin
+		if( read ) begin //Read from Instruction memory cache
+			if( hit && !IMbusy_wait ) begin  		//if hit read from cache
 				if( flag ) begin
 					cache_ram[ 4*index ] = IMread_data[127:96];
 					cache_ram[ 4*index+1 ] = IMread_data[95:64];
@@ -494,7 +481,7 @@ module instr_cache( clk, rst, read, address, read_data, InsWait ,
 				read_data = cache_ram[ 4*index+offset ];
 			end
 
-			if( !hit ) begin		//If not a hit	
+			if( !hit ) begin		//If not a hit fetch from Instruction memory
 				InsWait = 1'b1;
 				IMaddress = address[7:2];
 				IMread = 1'b1;
