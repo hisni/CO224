@@ -2,7 +2,6 @@
 	Group 09 (E/15/131, E/15/348)
 	Simple Processor
 */
-
 // ******** ALU ********
 module ALU( RESULT, DATA1, DATA2, SELECT );
 	input [7:0] DATA1,DATA2;	//Source 1 & 2	
@@ -33,7 +32,6 @@ module regfile8x8a ( clk, INaddr, IN, OUT1addr, OUT1, OUT2addr, OUT2, busy_wait 
 	input busy_wait;
 	output reg [7:0] OUT1,OUT2;
 	reg [63:0] regMemory = 0;
-
 	integer i;
 	
 	always @(posedge clk) begin			//Read at postive edge of Clock
@@ -42,7 +40,6 @@ module regfile8x8a ( clk, INaddr, IN, OUT1addr, OUT1, OUT2addr, OUT2, busy_wait 
 			OUT2[i] = regMemory[ OUT2addr*8 + i ];
 		end
 	end
-	
 	always @(negedge clk) begin			//Write at negative edge of Clock
 		if ( !busy_wait )begin			//Stall if DM access is happening
 			for(i=0;i<8;i=i+1)begin
@@ -50,7 +47,6 @@ module regfile8x8a ( clk, INaddr, IN, OUT1addr, OUT1, OUT2addr, OUT2, busy_wait 
 			end
 		end
 	end
-
 endmodule
 
 // ******** Program Counter ********
@@ -65,7 +61,6 @@ module counter(clk, reset, Read_addr, busy_wait, InsWait );
 			Read_addr = -1;
 		end
 	end
-	
 	always @(posedge clk) begin
 		if ( !InsWait  && !busy_wait ) begin		//Stall if DM access is happening
 			Read_addr = Read_addr + 8'b00000001;	//PC = PC + 1, if reset = 0
@@ -93,7 +88,6 @@ module Comparator( Out, Input1, Input2 );	//Comapre 4bit singnals
 	input [3:0] Input1;
 	input [3:0] Input2;
 	output Out;
-
 	wire out1,out2,out3,out4;
 
 	xnor xnor1( out1, Input1[0], Input2[0] );
@@ -101,7 +95,6 @@ module Comparator( Out, Input1, Input2 );	//Comapre 4bit singnals
 	xnor xnor3( out3, Input1[2], Input2[2] );
 	xnor xnor4( out4, Input1[3], Input2[3] );
 	and and1( Out, out1, out2, out3, out4 );
-	
 endmodule
 
 // ******** 2's Complement ********
@@ -110,7 +103,6 @@ module TwosComplement( OUTPUT, INPUT );		//Compute 2's Complement
 	output [7:0] OUTPUT;
 
 	assign OUTPUT[7:0] = -INPUT[7:0];
-
 endmodule
 
 // ******** Instruction Register ********
@@ -132,6 +124,7 @@ module CU( instruction, busy_wait, OUT1addr, OUT2addr, INaddr, Imm, Select, addS
 	
 	input [31:0] instruction;
 	input busy_wait;
+
 	output reg [2:0] OUT1addr;
 	output reg [2:0] OUT2addr;
 	output reg [2:0] Select;
@@ -234,7 +227,6 @@ module data_mem( clk, rst, read, write, address, write_data, read_data,	busy_wai
 			busy_wait <= 0;
 		end
 	end
-	
 endmodule
 
 // ******** Data Memory Cache ********
@@ -264,7 +256,6 @@ module data_cache( clk, rst, read, write, address, write_data, read_data, busy_w
 	reg busy_wait = 1'b0;
 
 	integer  i;
-
 	//Cache Memory 16x8 bits 
 	//16 Bytes // 2Bytes/Block
 	reg [7:0] cache_ram [15:0];
@@ -372,7 +363,6 @@ module data_cache( clk, rst, read, write, address, write_data, read_data, busy_w
 			end			
 		end
 	end
-
 endmodule
 
 // ******** Instruction Memory ********
@@ -541,7 +531,6 @@ module Processor( InsAddr, clk, rst, instruction, DataMemMUXout );
 	instr_cache imc( clk, rst, InsRead, InsAddress, InsRead_data, InsWait ,
 					IMread, IMaddress, READ_INST, IMbusy_wait,hit2 );	//Instruction Memory Cache
 	instr_mem im( clk, rst, IMread, IMaddress, READ_INST, IMbusy_wait );	//Instruction Memory
-
 endmodule
 
 module testDM;
@@ -621,10 +610,9 @@ module testDM;
 		$display("After 1CC -	%d	( (255 & 112) = 112 ) )", Result );
 		#200
 		$display("After 100CC -	%d	( (79 | 29) = 95 ) (IM miss)", Result );
-		
-		#20000$finish;
+		#20000
+		$finish;
 	end
-
 endmodule
 
 /*
