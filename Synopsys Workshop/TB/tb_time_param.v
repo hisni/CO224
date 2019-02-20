@@ -23,18 +23,15 @@ module tb_time_para();
 		#2 interval = 2'd2;
         #2 interval = 2'd3<F4>;
 
-		
 		#2 param_selector = 2'd0;
 		#1 time_value = 4'd9;
 		
 		#1 prog_sync = 1;
 		#10 prog_sync = 0;
-		
-				
+						
 		#20 $finish();
 	end
 	
 	initial forever #1 clk = ~clk;
-
 
 endmodule

@@ -33,9 +33,7 @@ module tb_timer();
         #1 start_timer = 1;
         #1 start_timer = 0;
 
-
         #50 $finish();
-
     
     end
 

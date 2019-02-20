@@ -27,13 +27,7 @@ module tb_synchonizer();
         #10 in = 1;
         #15 in  = 0;
 
-
-
         #50 $finish();
 
     end
-
-
-
-
 endmodule
